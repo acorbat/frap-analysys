@@ -364,10 +364,10 @@ corr_df = pd.DataFrame()
 
 for i in df.index:
     if df['cell'][i] not in non_cell:
-        corr_df = corr_df.append({'Amp':df['Amp'][i], 'Imm':df['Imm'][i], 'k':1/df['tau'][i], 'area':df['pre_area'][i], 'pre_I':df['pre_I'][i], 'pinhole':df['pinhole'][i]}, ignore_index=True)
+        corr_df = corr_df.append({'Amp':df['Amp'][i], 'Imm':df['Imm'][i], 'k':1/df['tau'][i], 'area':df['pre_area'][i], 'pre_I':df['pre_I'][i], 'pinhole':df['pinhole'][i], 'Amp_CP':df['Amp_CP'][i], 'Imm_CP':df['Imm_CP'][i], 'k_CP':1/df['tau_CP'][i]}, ignore_index=True)
 
 #%% Import seaborn and calculate cross correlations
 
 import seaborn as sns
 
-sns.pairplot(corr_df, vars=['Amp', 'Imm', 'k', 'area', 'pre_I'], hue='pinhole')
+sns.pairplot(corr_df, vars=['Amp', 'Imm', 'k', 'area', 'pre_I', 'Amp_CP', 'Imm_CP', 'k_CP'], hue='pinhole')
