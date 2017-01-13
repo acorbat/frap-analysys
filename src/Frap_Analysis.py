@@ -5,6 +5,7 @@ Created on Tue Nov 29 12:17:56 2016
 @author: Agus
 """
 import os
+import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -28,18 +29,30 @@ def Frap_Func(t, A, immobile_frac, tau):
 
 def generate_FileDict(filepath):
     os.chdir(filepath)
-    files = [file for file in os.listdir() if file.endswith('.oif') and '_post_' in file or file.endswith('.oif') and '_pre_' in file]
+    files = [file for file in os.listdir() if file.endswith('.oif') and '_pos' in file or file.endswith('.oif') and '_pre' in file]
     
     File_Dict = {}
     for file in files:
         file_parts = file.split('_')
         cell = file_parts[1]
-        moment = file_parts[2]
+        moment = file_parts[2].split('.')[0]
         File_Dict[cell, moment] = file
     
     return File_Dict
 
 # Functions to get metadata from oif files
+
+def get_info(filepath):
+    filename = filepath.split('\\')[-1]
+    file_parts = filename.split('_')
+    exp = file_parts[0]
+    cell = file_parts[1]
+    cell_n = re.search('C.*F', cell)
+    cell_n = int(cell_n.group(0)[1:-1])
+    foci = re.search('F.*', cell)
+    foci = int(foci.group(0)[1:])
+    
+    return cell, exp, cell_n, foci
 
 def get_timepoint(filepath):
     filepath = filepath + '.files\s_C001T001.pty'
@@ -125,8 +138,8 @@ def get_size(filepath):
 
 def crop_and_conc(cell, FileDict):
     file_pre = FileDict[cell, 'pre']
-    file_post = FileDict[cell, 'post']
-    file_ble = file_post.replace('post', 'ble')
+    file_post = FileDict[cell, 'pos']
+    file_ble = file_post.replace('pos', 'ble')
     
     Size = get_size(file_ble)
     start = get_clip(file_ble)
@@ -230,8 +243,9 @@ def generate_df(fp):
     df = pd.DataFrame()
     for cell in cells:
         series, tot_Int = crop_and_conc(cell, FileDict)
-        timepoint = get_timepoint(FileDict[cell, 'post'])
-        df = df.append({'cell':cell, 'series':series, 'timepoint':timepoint, 'total_Int':tot_Int}, ignore_index=True)
+        timepoint = get_timepoint(FileDict[cell, 'pre'])
+        _, exp, cell_n, foci = get_info(FileDict[cell, 'pre'])
+        df = df.append({'cell':cell, 'experiment': exp, 'cell_number':cell_n, 'foci':foci, 'series':series, 'timepoint':timepoint, 'total_Int':tot_Int}, ignore_index=True)
     return df
 
 def add_foregroundSeries(df):
