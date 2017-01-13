@@ -36,10 +36,11 @@ df =  add_fitParams(df, Plot=True)
 
 #%% cells not working
 
-non_cell = ['C3F2', 'C7F4', 'C7F2', 'C5F4', 'C6F1', 'C1F1', 'C4F1', 'C4F2', 'C3F3', 'C2F5', 'C6F5', 'C3F4', 'C3F1', 'C5F3', 'C1F5', 'C2F4', 'C2F1']
+non_cell = ['C3F2', 'C7F4', 'C7F2', 'C5F4', 'C6F1', 'C1F1', 'C4F1', 'C4F2', 'C3F3', 'C2F5', 'C6F5', 'C3F4', 'C3F1', 'C5F3', 'C1F5', 'C2F4', 'C2F1', 'C7F3', 'C1F2', 'C1F4']
+# 'C7F3' es rara, es muy recta
 
 corr_df = pd.DataFrame()
 
 for i in df.index:
     if df['cell'][i] not in non_cell:
-        corr_df = corr_df.append({'Amp':df['Amp'][i], 'Imm':df['Imm'][i], 'k':1/df['tau'][i], 'area':df['pre_area'][i], 'pre_I':df['pre_I'][i]}, ignore_index=True)
+        corr_df = corr_df.append({'cell_number':df['cell_number'][i], 'foci':df['foci'][i], 'Amp':df['Amp'][i], 'Imm':df['Imm'][i], 'k':1/df['tau'][i], 'area':df['pre_area'][i], 'pre_I':df['pre_I'][i]}, ignore_index=True)
