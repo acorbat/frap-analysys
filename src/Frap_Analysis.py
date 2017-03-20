@@ -5,6 +5,7 @@ Created on Tue Nov 29 12:17:56 2016
 @author: Agus
 """
 import pathlib
+import os
 import re
 import numpy as np
 import pandas as pd
@@ -43,20 +44,22 @@ def generate_FileDict(filepath):
 # Functions to get metadata from oif files
 
 def get_info(filepath):
-    filename = filepath.split('\\')[-1]
+    filepath = pathlib.Path(filepath)
+    filename = filepath.name
     file_parts = filename.split('_')
-    exp = file_parts[0]
-    cell = file_parts[1]
+    cell = file_parts[0]
     cell_n = re.search('C.*F', cell)
     cell_n = int(cell_n.group(0)[1:-1])
     foci = re.search('F.*', cell)
     foci = int(foci.group(0)[1:])
     
-    return cell, exp, cell_n, foci
+    return cell, cell_n, foci
 
 def get_timepoint(filepath):
-    filepath = filepath + '.files\s_C001T001.pty'
-    with open(filepath, 'rb') as file:
+    filepath = pathlib.Path(filepath)
+    filepath = filepath.with_name(str(filepath.name) + '.files\s_C001T001.pty')
+    
+    with open(str(filepath), 'rb') as file:
         for row in file:
             try:
                 r = str(row.decode("utf-8"))
@@ -83,7 +86,7 @@ def get_clip(filepath):
         elif Axis == 'Y':
             Axis_Name = '[\00A\00x\00i\00s\00 \0001\00 \00P\00a\00r\00a\00m\00e\00t\00e\00r\00s\00 \00C\00o\00m\00m\00o\00n\00]'
         
-        with open(filepath, 'rb') as file:
+        with open(str(filepath), 'rb') as file:
             found_Axis_0 = False
             for row in file:
                 try:
@@ -113,7 +116,7 @@ def get_size(filepath):
         elif Axis == 'Y':
             Axis_Name = '[\00A\00x\00i\00s\00 \0001\00 \00P\00a\00r\00a\00m\00e\00t\00e\00r\00s\00 \00C\00o\00m\00m\00o\00n\00]'
         
-        with open(filepath, 'rb') as file:
+        with open(str(filepath), 'rb') as file:
             found_Axis_0 = False
             for row in file:
                 try:
@@ -139,14 +142,15 @@ def get_size(filepath):
 def crop_and_conc(cell, FileDict):
     file_pre = FileDict[cell, 'pre']
     file_post = FileDict[cell, 'pos']
-    file_ble = file_post.replace('pos', 'ble')
+    file_ble = file_post.parent
+    file_ble = file_ble.joinpath(str(file_post.name).replace('_pos', '_ble'))
     
     Size = get_size(file_ble)
     start = get_clip(file_ble)
     end = np.asarray(start) + np.asarray(Size)
     
-    pre_imgs = oif.imread(file_pre)
-    post_imgs = oif.imread(file_post)
+    pre_imgs = oif.imread(str(file_pre))
+    post_imgs = oif.imread(str(file_post))
     
     pre_imgs_clipped = [img[start[1]:end[1],start[0]:end[0]] for img in pre_imgs[0][:]]
     post_imgs_clipped = [img[start[1]:end[1],start[0]:end[0]] for img in post_imgs[0][:]]
@@ -244,8 +248,8 @@ def generate_df(fp):
     for cell in cells:
         series, tot_Int = crop_and_conc(cell, FileDict)
         timepoint = get_timepoint(FileDict[cell, 'pre'])
-        _, exp, cell_n, foci = get_info(FileDict[cell, 'pre'])
-        df = df.append({'cell':cell, 'experiment': exp, 'cell_number':cell_n, 'foci':foci, 'series':series, 'timepoint':timepoint, 'total_Int':tot_Int}, ignore_index=True)
+        _, cell_n, foci = get_info(FileDict[cell, 'pre'])
+        df = df.append({'cell':cell, 'cell_number':cell_n, 'foci':foci, 'series':series, 'timepoint':timepoint, 'total_Int':tot_Int}, ignore_index=True)
     return df
 
 def add_foregroundSeries(df):
