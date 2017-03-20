@@ -4,7 +4,7 @@ Created on Tue Nov 29 12:17:56 2016
 
 @author: Agus
 """
-import os
+import pathlib
 import re
 import numpy as np
 import pandas as pd
@@ -28,16 +28,16 @@ def Frap_Func(t, A, immobile_frac, tau):
 # Function to generate filepath dictionary
 
 def generate_FileDict(filepath):
-    os.chdir(filepath)
-    files = [file for file in os.listdir() if file.endswith('.oif') and '_pos' in file or file.endswith('.oif') and '_pre' in file]
+    """
+    Generates a dictionary with paths for each cell and time period
     
-    File_Dict = {}
-    for file in files:
-        file_parts = file.split('_')
-        cell = file_parts[1]
-        moment = file_parts[2].split('.')[0]
-        File_Dict[cell, moment] = file
-    
+    Inputs:
+    filepath -- filepath to folder with all the .oif files
+    Returns:
+    File_Dict -- Dictionary where keys are [cell, period] and values are the corresponding full path
+    """
+    filepath = pathlib.Path(filepath)
+    File_Dict = {(f.name.split('_')[0], f.name.split('_')[1][:-4]): f for f in filepath.glob('*.oif') if '_pos' in str(f.name) or '_pre' in str(f.name)}
     return File_Dict
 
 # Functions to get metadata from oif files
