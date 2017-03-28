@@ -215,20 +215,24 @@ def crop_and_conc2(cell, FileDict):
     
     return imgs_clipped, tot_Ints
 
+    
+def clip(x, mn, mx):
+    """Returns x clipped between mn and mx"""
+    return x if mn <= x <= mx else (mn if x < mn else mx)    
+
 
 def imcrop(im, x1, x2, y1, y2):
+    """Crops the image im between x1 and x2 (vertical axis) and y1 and y2 (horizontal axis)"""
     assert x1 < x2
     assert y1 < y2
     sh = im.shape
     x1, x2 = np.clip([x1, x2], 0, sh[0])
     y1, y2 = np.clip([y1, y2], 0, sh[1])
     return im[x1:x2, y1:y2]
-    
-    
-def clip(x, mn, mx):
-    return x if mn <= x <= mx else (mn if x < mn else mx)    
+
     
 def imcrop_wh(im, x1, w, y1, h):
+    """Crops the image im """
     assert w>0
     assert h>0
     sh = im.shape
