@@ -221,17 +221,17 @@ def clip(x, mn, mx):
     return x if mn <= x <= mx else (mn if x < mn else mx)    
 
 
-def imcrop(im, x1, x2, y1, y2):
+def imcrop(im, y1, y2, x1, x2):
     """Crops the image im between x1 and x2 (vertical axis) and y1 and y2 (horizontal axis)"""
     assert x1 < x2
     assert y1 < y2
     sh = im.shape
     x1, x2 = np.clip([x1, x2], 0, sh[0])
     y1, y2 = np.clip([y1, y2], 0, sh[1])
-    return im[x1:x2, y1:y2]
+    return im[y1:y2, x1:x2]
 
     
-def imcrop_wh(im, x1, w, y1, h):
+def imcrop_wh(im, y1, h, x1, w):
     """Crops the image im """
     assert w>0
     assert h>0
@@ -240,11 +240,11 @@ def imcrop_wh(im, x1, w, y1, h):
     x2 = clip(x1 + w, 0, sh[1])
     y1 = clip(y1, 0, sh[1])
     y2 = clip(y1 + h, 0, sh[1])
-    return im[x1:x2, y1:y2]
+    return im[y1:y2, x1:x2]
     
 
     
-def crop_and_shift(imgs, xwyh, filter_width=5, D=5):
+def crop_and_shift(imgs, yhxw, filter_width=5, D=5):
     """
     Returns a concatenated series clipped from the bleaching clip.
     
@@ -256,30 +256,30 @@ def crop_and_shift(imgs, xwyh, filter_width=5, D=5):
     tot_Ints     -- list of mean intensity of every image without clip
     """
 
-    x, w, y, h = xwyh
+    y, h, x, w = yhxw
     len_series, sh_y, sh_x = imgs.shape
-    stack = np.full((len_series, w, h), np.nan)
+    stack = np.full((len_series, h, w), np.nan)
     out_intensity = np.full((len_series, ), np.nan)
     offsets = np.empty((len_series, 2), dtype=np.uint)
     
-    pre_img = np.zeros((w,h))
+    pre_img = np.zeros((h,w))
     rr, cc = circle(pre_img.shape[0]//2, pre_img.shape[1]//2, 5, pre_img.shape)
     pre_img[rr, cc] = 1
     
     for ndx in range(len_series):
         img = imgs[ndx, :, :]
-        cropped = imcrop_wh(img, x, w, y, h)
+        cropped = imcrop_wh(img, y, h, x, w)
         p1, p2 = np.percentile(cropped, [20, 80])
         if p2 - p1 > 75:
             correlation = correlate2d(cropped, pre_img)#smooth, smooth_pre)
             pos = np.unravel_index(np.argmax(correlation), correlation.shape)
-            x += (pos[0] - correlation.shape[0]//2)
-            y += (pos[1] - correlation.shape[1]//2)
-            cropped = imcrop_wh(img, x, w, y, h)
+            y += (pos[0] - correlation.shape[0]//2)
+            x += (pos[1] - correlation.shape[1]//2)
+            cropped = imcrop_wh(img, y, h, x, w)
             
         stack[ndx, :, :] = cropped.copy()
-        out_intensity[ndx] = np.nansum(img) - np.nansum(imcrop_wh(img, x-D, w+D, y-D, h+D))
-        offsets[ndx, :] = (x, y)
+        out_intensity[ndx] = np.nansum(img) - np.nansum(imcrop_wh(img, y-D, h+D, x-D, w+D))
+        offsets[ndx, :] = (y, x)
         
     return stack, out_intensity, offsets
 
