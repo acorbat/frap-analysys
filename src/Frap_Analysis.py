@@ -130,7 +130,7 @@ def get_clip(filepath):
                         break
                 except:
                     continue
-    return (clip['X'], clip['Y'])
+    return (clip['Y'], clip['X'])
 
 def get_size(filepath):
     """
@@ -163,7 +163,7 @@ def get_size(filepath):
                         break
                 except:
                     continue
-    return (Sizes['X'], Sizes['Y'])
+    return (Sizes['Y'], Sizes['X'])
 
 # Functions to crop and mask images
 
@@ -190,8 +190,8 @@ def crop_and_conc2(cell, FileDict):
     pre_imgs = oif.imread(str(file_pre))
     post_imgs = oif.imread(str(file_post))
     
-    pre_imgs_clipped = [img[start[1]:end[1],start[0]:end[0]] for img in pre_imgs[0][:]]
-    post_imgs_clipped = [img[start[1]:end[1],start[0]:end[0]] for img in post_imgs[0][:]]
+    pre_imgs_clipped = [img[start[0]:end[0],start[1]:end[1]] for img in pre_imgs[0][:]]
+    post_imgs_clipped = [img[start[0]:end[0],start[1]:end[1]] for img in post_imgs[0][:]]
     
     pre_imgs_clipped = np.asarray(pre_imgs_clipped)
     post_imgs_clipped = np.asarray(post_imgs_clipped)
@@ -200,7 +200,7 @@ def crop_and_conc2(cell, FileDict):
     
     tot_Ints = []
     for img in imgs:
-        img[start[1]-10:end[1]+10,start[0]-10:end[0]+10] = np.nan
+        img[start[0]-10:end[0]+10,start[1]-10:end[1]+10] = np.nan
         #img[0:start[1]-10,:] = np.nan
         #img[end[1]+5:,:] = np.nan
         #img[:,0:start[0]-10] = np.nan
@@ -303,9 +303,9 @@ def crop_and_conc(cell, FileDict):
     Size = get_size(file_ble)
     start = get_clip(file_ble)
     
-    stack1, out_intensity1, offsets = crop_and_shift(oif.imread(str(file_pre))[0], (start[1], Size[1], start[0], Size[0]))
+    stack1, out_intensity1, offsets = crop_and_shift(oif.imread(str(file_pre))[0], (start[0], Size[0], start[1], Size[1]))
 
-    stack2, out_intensity2, offsets = crop_and_shift(oif.imread(str(file_post))[0], (offsets[-1, 0], Size[1], offsets[-1, 1], Size[0]))
+    stack2, out_intensity2, offsets = crop_and_shift(oif.imread(str(file_post))[0], (offsets[-1, 0], Size[0], offsets[-1, 1], Size[1]))
     
     return np.concatenate((stack1, stack2)), np.concatenate((out_intensity1, out_intensity2))
     
