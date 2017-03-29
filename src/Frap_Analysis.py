@@ -453,6 +453,37 @@ def generate_df(fp):
         df = df.append({'cell':cell, 'cell_number':cell_n, 'foci':foci, 'series':series, 'timepoint':timepoint, 'total_Int':tot_Int}, ignore_index=True)
     return df
 
+
+def process_frap(fp):
+    """
+    TODO: correct documentation
+    Generates dataframe with with images and attributes of each cell in the fp filepath.
+    
+    Sweeps the fp directory for oif files of cells and concatenates the pre and pos images
+    cropping the image with the clip selection for bleaching found in the ble oif file.
+    The DataFrame returned has cell name ('cell'), cell number ('cell_number'), foci number
+    ('foci'), cropped image series ('series'), timepoint ('timepoint'), and total intensity 
+    of non-cropped region of the image ('total_Int')
+    Inputs
+    fp -- filepath of the folder containing oif files
+    Returns
+    df -- pandas DataFrame containing the information of the oif files
+    """
+    FileDict = generate_FileDict(fp)
+    
+    cells = set()
+    for key in FileDict.keys():
+        cells.add(key[0])
+    
+    df = pd.DataFrame()
+    for cell in cells:
+        series, tot_Int = crop_and_conc(cell, FileDict)
+        timepoint = get_timepoint(FileDict[cell, 'pre'])
+        _, cell_n, foci = get_info(FileDict[cell, 'pre'])
+        df = df.append({'cell':cell, 'cell_number':cell_n, 'foci':foci, 'series':series, 'timepoint':timepoint, 'total_Int':tot_Int}, ignore_index=True)
+    return df
+
+
 def add_foregroundSeries(df):
     means_Is = []
     stds_Is = []
