@@ -318,6 +318,36 @@ def crop_and_conc(cell, FileDict):
     stack2, out_intensity2, offsets = crop_and_shift(oif.imread(str(file_post))[0], (offsets[-1, 0], Size[0], offsets[-1, 1], Size[1]))
     
     return np.concatenate((stack1, stack2)), np.concatenate((out_intensity1, out_intensity2))
+
+
+def load_and_track(fp, yhxw=None):
+    """
+    Returns a concatenated series clipped from the bleaching clip size starting from the window yhxw or from bleaching clip.
+    
+    Inputs
+    fp   -- filepath of oif file with images
+    yhxw -- tiple containing (y position, height, x position, width) of clip
+    Returns
+    stack -- image series cropped after tracking and centering granule
+    out_intensity -- list of mean intensity of every image without clip
+    offsets       -- trajectory of (y, x) of clip
+    """
+    fp = pathlib.Path(fp)
+    if yhxw is None:
+        file_ble = fp.parent
+        if '_pos' in fp.name:
+            file_ble = file_ble.joinpath(str(fp.name).replace('_pos', '_ble'))
+        elif '_pre' in fp.name:
+            file_ble = file_ble.joinpath(str(fp.name).replace('_pre', '_ble'))
+        
+        Size = get_size(file_ble)
+        start = get_clip(file_ble)
+        
+        yhxw = (start[0], Size[0], start[1], Size[1])
+    
+    stack, out_intensity, offsets = crop_and_shift(oif.imread(str(fp))[0], yhxw)
+    
+    return stack, out_intensity, offsets
     
 
 def generate_masks(img, iterations):
@@ -475,12 +505,35 @@ def process_frap(fp):
     for key in FileDict.keys():
         cells.add(key[0])
     
+    # Load all cropped images from folder into dataframe
     df = pd.DataFrame()
-    for cell in cells:
-        series, tot_Int = crop_and_conc(cell, FileDict)
+    for cell in cells: 
+        # track and crop images pre bleaching
+        file_pre = FileDict[cell, 'pre']
+        pre_series, pre_tot_Int, pre_trajectory = load_and_track(file_pre)
+        
+        # track and crop images post bleaching
+        file_pos = FileDict[cell, 'pos']
+        yhxw = (pre_trajectory[-1, 0], pre_series[0].shape[0], pre_trajectory[-1, 1], pre_series[0].shape[1])
+        pos_series, pos_tot_Int, pos_trajectory = load_and_track(file_pos, yhxw)
+        
+        # get cell information
         timepoint = get_timepoint(FileDict[cell, 'pre'])
         _, cell_n, foci = get_info(FileDict[cell, 'pre'])
-        df = df.append({'cell':cell, 'cell_number':cell_n, 'foci':foci, 'series':series, 'timepoint':timepoint, 'total_Int':tot_Int}, ignore_index=True)
+        # prepare dataframe
+        df = df.append({'cell':cell, 
+                        'cell_number':cell_n, 
+                        'foci':foci, 
+                        'pre_series':pre_series, 
+                        'timepoint':timepoint, 
+                        'pre_total_Int':pre_tot_Int, 
+                        'pre_trajectory':pre_trajectory, 
+                        'pos_series':pos_series, 
+                        'pos_total_Int':pos_tot_Int, 
+                        'pos_trajectory':pos_trajectory},
+                        ignore_index=True)
+    
+    
     return df
 
 
