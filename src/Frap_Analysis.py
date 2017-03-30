@@ -397,7 +397,10 @@ def calculate_areas(img):
         mask = generate_masks(img, i)
         if not mask.any():
             continue
-        ROI = img[mask]
+        # Select only centered granule
+        labeled = meas.label(mask)
+        obj_num = labeled[labeled.shape[0]//2, labeled.shape[1]//2]
+        ROI = img[mask==obj_num]
         Ints.extend(ROI)
         CPs.extend(img[~mask])
         areas.append(len(ROI))
@@ -533,6 +536,9 @@ def process_frap(fp):
                         'pos_trajectory':pos_trajectory},
                         ignore_index=True)
     
+    # Characterize granule from pre series
+    for i in df.index:
+        means_I, stds_I, means_CP, stds_CP, areas = calculate_series(df.pre_series.values[i])
     
     return df
 
