@@ -254,7 +254,7 @@ def crop_and_shift(imgs, yhxw, filter_width=5, D=5):
     """
     Returns the cropped series imgs starting from y,x with size h,w and centering the granule.
     
-    Generates a crop at y,x with size h,w and centers the crop in the present granule using correlation with a cenetred disk.
+    Generates a crop at y,x with size h,w and centers the crop in the present granule using correlation with a centred disk.
     From then on, the image is centered by correlating to previous image. If difference in image intensity percentile 20 and 80
     is low, no correlation and tracking is done.
     Inputs
@@ -371,9 +371,28 @@ def generate_masks(img, iterations):
         mask = binary_opening(mask, iterations=iterations)
     return mask
 
+
+def circle_mask(img, radius):
+    """
+    Returns mask for image (img) consisting of centered circle of radius.
+    
+    It applies otsu threshold over the log intensity image and 
+    then iterates over erosion and dilation of the image to 
+    delete lonely pixels or holes in mask.
+    Inputs
+    img    -- image to generate mask
+    radius -- radius of the centered circle mask
+    Returns
+    mask -- boolean mask generated
+    """
+    mask = np.zeros(img.shape)
+    rr, cc = circle(img.shape[0]//2, img.shape[1]//2, radius, img.shape)
+    mask[rr, cc] = 1
+    return mask
+
 # Functions to calculate sum or means of intensities
 
-def calculate_areas(img):
+def calculate_areas(img, rad=None):
     """
     Calculates mean and std of foci and citoplasm intensity and area of foci after generating a mask.
     
@@ -384,38 +403,49 @@ def calculate_areas(img):
     Inputs
     img -- image to calculate intensities and area of foci
     Returns
-    mean_I  -- mean weighted intensity of foci
-    std_I   -- standard deviation of weighted intensity foci
-    mean_CP -- mean weighted intensity of non-foci
-    std_CP  -- standard deviation of weighted intensity non-foci
-    area    -- mean of weighted mask area
+    mean_I    -- mean weighted intensity of foci
+    std_I     -- standard deviation of weighted intensity foci
+    mean_CP   -- mean weighted intensity of non-foci
+    std_CP    -- standard deviation of weighted intensity non-foci
+    areas     -- weighted mask areas time series
+    diameters -- equivalent circle diameter time series
     """
     Ints = []
     CPs = []
     areas = []
+    diameters = []
     for i in range(3, 4):
-        mask = generate_masks(img, i)
+        if rad is None:
+            mask = generate_masks(img, i)
+        else:
+            mask = circle_mask(img, rad)
         if not mask.any():
             continue
         # Select only centered granule
         labeled = meas.label(mask)
         obj_num = labeled[labeled.shape[0]//2, labeled.shape[1]//2]
-        ROI = img[mask==obj_num]
+        mask = np.asarray(labeled==obj_num, dtype='int')
+        props = meas.regionprops(mask)[0]
+        area = props.area
+        diameter = props.equivalent_diameter 
+        ROI = img[mask]
         Ints.extend(ROI)
         CPs.extend(img[~mask])
-        areas.append(len(ROI))
+        areas.append(area)
+        diameters.append(diameter)
     mean_I = np.nansum(Ints)
     std_I = np.nanstd(Ints)
     mean_CP = np.nanmean(CPs)
     std_CP = np.nanstd(CPs)
-    area = np.mean(areas)
+    areas = np.asarray(areas)
+    diameters = np.asarray(diameters)
     if np.isnan(mean_I):
         mean_I = mean_CP
         std_I = std_CP
         area = 0
-    return mean_I, std_I, mean_CP, std_CP, area
+    return mean_I, std_I, mean_CP, std_CP, area, diameters
 
-def calculate_series(series):
+def calculate_series(series, rad=None):
     """
     Calculates intensities and area of foci in image series.
     
@@ -426,35 +456,39 @@ def calculate_series(series):
     Inputs
     series -- series of images to calculate foci intensities and area
     Returns
-    means_I  -- list of mean weighted intensity of foci
-    stds_I   -- list of standard deviation of weighted intensity of foci
-    means_CP -- list of mean weighted intensity of non-foci
-    stds_CP  -- list of standard deviation of weighted intensity of non-foci
-    areas    -- list of mean weighted area of foci
+    means_I    -- list of mean weighted intensity of foci
+    stds_I     -- list of standard deviation of weighted intensity of foci
+    means_CP   -- list of mean weighted intensity of non-foci
+    stds_CP    -- list of standard deviation of weighted intensity of non-foci
+    areass     -- time series list of weighted area of foci
+    diameterss -- time series of equivalent circle diameter
     """
     means_I = []
     stds_I = []
     means_CP = []
     stds_CP = []
-    areas = []
+    areass = []
+    diameterss = []
     for img in series:
-        mean_I, std_I, mean_CP, std_CP, area = calculate_areas(img)
+        mean_I, std_I, mean_CP, std_CP, areas, diameters = calculate_areas(img, rad)
         means_I.append(mean_I)
         stds_I.append(std_I)
         means_CP.append(mean_CP)
         stds_CP.append(std_CP)
-        areas.append(area)
+        areass.append(areas)
+        diameterss.append(diameters)
     
     means_I =  np.asarray(means_I)
     stds_I =  np.asarray(stds_I)
     means_CP =  np.asarray(means_CP)
     stds_CP =  np.asarray(stds_CP)
-    areas =  np.asarray(areas)
-    return means_I, stds_I, means_CP, stds_CP, areas
+    areass =  np.asarray(areass)
+    diameterss = np.asarray(diameterss)
+    return means_I, stds_I, means_CP, stds_CP, areass, diameterss
 
 def calculate_fluorescence(CP, GR):
-    """Returns GR/CP as normalization"""
-    return GR/CP
+    """Returns list of GR/CP as normalization"""
+    return list(GR/CP)
 
 # Functions that create and add columns to pandas dataframe
 
@@ -537,8 +571,45 @@ def process_frap(fp):
                         ignore_index=True)
     
     # Characterize granule from pre series
+    pre_charac = {'pre_GR':[],
+                  'pre_std_GR':[],
+                  'pre_CP':[],
+                  'pre_std_CP':[],
+                  'area':[],
+                  'diameters':[]}
     for i in df.index:
-        means_I, stds_I, means_CP, stds_CP, areas = calculate_series(df.pre_series.values[i])
+        means_I, stds_I, means_CP, stds_CP, areas, diameters = calculate_series(df.pre_series.values[i])
+        pre_charac['pre_GR'].append(means_I)
+        pre_charac['pre_std_GR'].append(stds_I)
+        pre_charac['pre_CP'].append(means_CP)
+        pre_charac['pre_std_CP'].append(stds_CP)
+        pre_charac['area'].append(areas)
+        pre_charac['diameters'].append(diameters)
+    
+    for key, vect in pre_charac.items():
+        df[key] = vect
+    
+    # Use radius to generate masks for post bleaching processing
+    pos_charac = {'pos_GR':[],
+                  'pos_std_GR':[],
+                  'pos_CP':[],
+                  'pos_std_CP':[]}
+    for i in df.index:
+        rad = np.nanmean(df.diameters.values[i])//2 + 1
+        means_I, stds_I, means_CP, stds_CP, _, _ = calculate_series(df.pos_series.values[i], rad) # if rad is not passed, previous segmentation is used
+        pos_charac['pos_GR'].append(means_I)
+        pos_charac['pos_std_GR'].append(stds_I)
+        pos_charac['pos_CP'].append(means_CP)
+        pos_charac['pos_std_CP'].append(stds_CP)
+    
+    for key, vect in pos_charac.items():
+        df[key] = vect
+    
+    # add fluorescence calculation
+    lambdafunc = lambda x: calculate_fluorescence(x['pre_CP'], x['pre_GR'])
+    df['pre_f'] = list(df.apply(lambdafunc, axis=1).values)
+    lambdafunc = lambda x: calculate_fluorescence(x['pos_CP'], x['pos_GR'])
+    df['pos_f'] = list(df.apply(lambdafunc, axis=1).values)
     
     return df
 
@@ -552,7 +623,7 @@ def add_foregroundSeries(df):
     for i in df.index:
         series = df['series'][i]
         
-        means_I, stds_I, means_CP, stds_CP, areas = calculate_series(series)
+        means_I, stds_I, means_CP, stds_CP, areas, _ = calculate_series(series)
         
         means_Is.append(means_I)
         stds_Is.append(stds_I)
