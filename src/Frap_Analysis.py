@@ -433,7 +433,7 @@ def calculate_areas(img, rad=None):
         CPs.extend(img[~mask])
         areas.append(area)
         diameters.append(diameter)
-    mean_I = np.nansum(Ints)
+    mean_I = np.nanmean(Ints)
     std_I = np.nanstd(Ints)
     mean_CP = np.nanmean(CPs)
     std_CP = np.nanstd(CPs)
@@ -488,7 +488,7 @@ def calculate_series(series, rad=None):
 
 def calculate_fluorescence(CP, GR):
     """Returns list of GR/CP as normalization"""
-    return list(GR/CP)
+    return np.asarray(GR/CP)
 
 # Functions that create and add columns to pandas dataframe
 
@@ -606,10 +606,15 @@ def process_frap(fp):
         df[key] = vect
     
     # add fluorescence calculation
-    lambdafunc = lambda x: calculate_fluorescence(x['pre_CP'], x['pre_GR'])
-    df['pre_f'] = list(df.apply(lambdafunc, axis=1).values)
-    lambdafunc = lambda x: calculate_fluorescence(x['pos_CP'], x['pos_GR'])
-    df['pos_f'] = list(df.apply(lambdafunc, axis=1).values)
+    df['pre_f'] = list(map(calculate_fluorescence, df['pre_CP'], [1]*len(df['pre_CP'])))#df['pre_GR']))
+    df['pos_f'] = list(map(calculate_fluorescence, df['pos_CP'], [1]*len(df['pre_CP'])))#df['pos_GR']))
+    
+    # Add pre bleach mean intensity and normalize post bleach fluorescence with it   
+    df['mean_pre_I'] = list(map(np.nanmean, df['pre_f']))
+    lambdafunc = lambda x, y: x/y
+    df['f_corr'] = list(map(lambdafunc, df['pos_f'], df['mean_pre_I']))
+    
+    df = add_fitParams(df, Plot=True)
     
     return df
 
