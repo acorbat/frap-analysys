@@ -661,7 +661,7 @@ def process_frap(fp):
     # Use radius to generate masks for post bleaching processing
     pos_charac_df = pd.DataFrame()
     for i in df.index:
-        rad = np.nanmean(df.diameters.values[i])//2 + 1
+        rad = np.nanmean(df.diameter.values[i])//2 + 1
         this_GR, this_CP_near, _, _ = calculate_series(df.pos_series.values[i], rad) # if rad is not passed, previous segmentation is used
         pos_charac = {'cell':df.cell.values[i]}
         rec_to_dict(pos_charac, this_GR, 'pos_GR')
