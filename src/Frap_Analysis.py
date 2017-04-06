@@ -7,11 +7,14 @@ Created on Tue Nov 29 12:17:56 2016
 import pathlib
 import os
 import re
+from collections import namedtuple
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import tifffile as tif
 import skimage.measure as meas
+import scipy.stats as st
 
 from scipy.signal import correlate2d
 from scipy import ndimage as ndi
@@ -48,6 +51,29 @@ def generate_FileDict(filepath):
     filepath = pathlib.Path(filepath)
     File_Dict = {(f.name.split('_')[0], f.name.split('_')[1][:-4]): f for f in filepath.glob('*.oif') if '_pos' in str(f.name) or '_pre' in str(f.name)}
     return File_Dict
+
+
+def generate_statVar(shape):
+    rec = np.recarray((shape, ), [('sum', float), ('mean', float), ('mode', float), ('median', float), ('p20', float), ('p80', float)])
+    rec.fill(np.nan)
+    return rec
+
+
+def calculate_statvar(rec, ind, vect):
+    if len(vect)>0:
+        rec['sum'][ind] = np.nansum(vect)
+        rec['mean'][ind] = np.nanmean(vect)
+        rec['mode'][ind] = st.mode(vect).mode[0]
+        rec['median'][ind] = np.nanmedian(vect)
+        rec['p20'][ind], rec['p80'][ind] = np.percentile(vect, [20, 80])
+    else:
+        for field in rec.dtype.names:
+            rec[field] = np.nan
+
+
+def rec_to_dict(this_dict, rec, suffix):
+    for field in rec.dtype.names:
+        this_dict[suffix+'_'+field] = rec[field]
 
 
 # Functions to get metadata from oif files
@@ -238,7 +264,7 @@ def imcrop(im, y1, y2, x1, x2):
 
     
 def imcrop_wh(im, y1, h, x1, w):
-    """Crops the image im """
+    """Crops the image im"""
     assert w>0
     assert h>0
     sh = im.shape
@@ -247,7 +273,52 @@ def imcrop_wh(im, y1, h, x1, w):
     y1 = clip(y1, 0, sh[1])
     y2 = clip(y1 + h, 0, sh[1])
     return im[y1:y2, x1:x2]
+
+
+def get_farCP(img, yhxw, add=10):
+    """
+    Discard close bleaching zone and estimate citoplasm median intensity.
     
+    Discards the bleaching area plus 'add' pixels and then generates two Otsu masks
+    to find granules and dark background. Median intensity of citplasm is calculated.
+    Inputs
+    img  -- image to work on
+    yhxw -- window cropped for analysis
+    add  -- (optional) pixels added to bleaching zone
+    Return
+    CP_far     -- median intensity of citoplasm
+    CP_far_std -- standard deviation intensity of citoplasm
+    dark       -- median intensity of dark background
+    dark_std   -- standard deviation of dark background
+    """
+    # Discard granule in study
+    y, h, x, w = yhxw
+    y -= add
+    h += 2*add
+    x -= add
+    w += 2*add
+    sh = img.shape
+    x1 = clip(x, 0, sh[0])
+    x2 = clip(x + w, 0, sh[1])
+    y1 = clip(y, 0, sh[1])
+    y2 = clip(y + h, 0, sh[1])
+    img[y1:y2, x1:x2] = np.nan
+    
+    # Generate mask for citoplasm
+    extra_thresh = 20
+    upper_thresh = threshold_otsu(img)
+    upper_thresh = upper_thresh -extra_thresh
+    
+    
+    lower_thresh = threshold_otsu(np.log(img[img<upper_thresh]+1))
+    lower_thresh = np.exp(lower_thresh) -1
+    mask = np.where(np.logical_and(img>lower_thresh, img<upper_thresh), 1, 0)
+    mask = binary_opening(mask, iterations=3)
+    
+    # Prepare values to return
+    CP_far = img[mask]
+    dark = img[img<lower_thresh]
+    return CP_far, dark
 
     
 def crop_and_shift(imgs, yhxw, filter_width=5, D=5):
@@ -265,11 +336,11 @@ def crop_and_shift(imgs, yhxw, filter_width=5, D=5):
     out_Intensity -- list of mean intensity of every image outside crop
     offsets       -- list of (y,x) positions of crop (can be used as trajectory of granule)
     """
-
     y, h, x, w = yhxw
     len_series, sh_y, sh_x = imgs.shape
     stack = np.full((len_series, h, w), np.nan)
-    out_intensity = np.full((len_series, ), np.nan)
+    CP_far = generate_statVar(len_series)
+    dark = generate_statVar(len_series)
     offsets = np.empty((len_series, 2), dtype=np.uint)
     
     pre_img = np.zeros((h,w))
@@ -288,10 +359,12 @@ def crop_and_shift(imgs, yhxw, filter_width=5, D=5):
             cropped = imcrop_wh(img, y, h, x, w)
             
         stack[ndx, :, :] = cropped.copy()
-        out_intensity[ndx] = np.nansum(img) - np.nansum(imcrop_wh(img, y-D, h+D, x-D, w+D))
+        this_CP_far, this_dark = get_farCP(img, yhxw)
+        calculate_statvar(CP_far, ndx, this_CP_far)
+        calculate_statvar(dark, ndx, this_dark)
         offsets[ndx, :] = (y, x)
         
-    return stack, out_intensity, offsets
+    return stack, CP_far, dark, offsets
 
 
 def crop_and_conc(cell, FileDict):
@@ -428,22 +501,19 @@ def calculate_areas(img, rad=None):
         props = meas.regionprops(mask)[0]
         area = props.area
         diameter = props.equivalent_diameter 
-        ROI = img[mask]
+        ROI = img[mask==obj_num]
         Ints.extend(ROI)
-        CPs.extend(img[~mask])
+        CPs.extend(img[labeled==0])
         areas.append(area)
         diameters.append(diameter)
-    mean_I = np.nanmean(Ints)
-    std_I = np.nanstd(Ints)
-    mean_CP = np.nanmean(CPs)
-    std_CP = np.nanstd(CPs)
+    Ints = np.asarray(Ints)
+    CPs = np.asarray(CPs)
     areas = np.asarray(areas)
     diameters = np.asarray(diameters)
-    if np.isnan(mean_I):
-        mean_I = mean_CP
-        std_I = std_CP
-        area = 0
-    return mean_I, std_I, mean_CP, std_CP, area, diameters
+    if np.isnan(Ints).all():
+        Ints = CPs
+        areas = 0
+    return Ints, CPs, areas, diameters
 
 def calculate_series(series, rad=None):
     """
@@ -463,28 +533,22 @@ def calculate_series(series, rad=None):
     areass     -- time series list of weighted area of foci
     diameterss -- time series of equivalent circle diameter
     """
-    means_I = []
-    stds_I = []
-    means_CP = []
-    stds_CP = []
+    len_series, sh_y, sh_x = series.shape
+    GR = generate_statVar(len_series)
+    CP_near = generate_statVar(len_series)
     areass = []
     diameterss = []
-    for img in series:
-        mean_I, std_I, mean_CP, std_CP, areas, diameters = calculate_areas(img, rad)
-        means_I.append(mean_I)
-        stds_I.append(std_I)
-        means_CP.append(mean_CP)
-        stds_CP.append(std_CP)
+    for ndx in range(len_series):
+        img = series[ndx, :, :]
+        this_GR, this_CP_near, areas, diameters = calculate_areas(img, rad)
+        calculate_statvar(GR, ndx, this_GR)
+        calculate_statvar(CP_near, ndx, this_CP_near)
         areass.append(areas)
         diameterss.append(diameters)
     
-    means_I =  np.asarray(means_I)
-    stds_I =  np.asarray(stds_I)
-    means_CP =  np.asarray(means_CP)
-    stds_CP =  np.asarray(stds_CP)
     areass =  np.asarray(areass)
     diameterss = np.asarray(diameterss)
-    return means_I, stds_I, means_CP, stds_CP, areass, diameterss
+    return GR, CP_near, areass, diameterss
 
 def calculate_fluorescence(CP, GR):
     """Returns list of GR/CP as normalization"""
@@ -544,67 +608,71 @@ def process_frap(fp):
     
     # Load all cropped images from folder into dataframe
     df = pd.DataFrame()
-    for cell in cells: 
-        # track and crop images pre bleaching
+    for cell in cells:
+        # load complete image
         file_pre = FileDict[cell, 'pre']
-        pre_series, pre_tot_Int, pre_trajectory = load_and_track(file_pre)
+        series = oif.imread(str(file_pre))[0]
+        
+        # track and crop images pre bleaching
+        file_ble = file_pre.parent
+        file_ble = file_ble.joinpath(str(file_pre.name).replace('_pre', '_ble'))
+        Size = get_size(file_ble)
+        start = get_clip(file_ble)
+        yhxw = (start[0], Size[0], start[1], Size[1])
+        
+        pre_series, pre_CP_far, pre_dark, pre_trajectory = crop_and_shift(series, yhxw)
         
         # track and crop images post bleaching
         file_pos = FileDict[cell, 'pos']
+        series = oif.imread(str(file_pos))[0]
         yhxw = (pre_trajectory[-1, 0], pre_series[0].shape[0], pre_trajectory[-1, 1], pre_series[0].shape[1])
-        pos_series, pos_tot_Int, pos_trajectory = load_and_track(file_pos, yhxw)
+        pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift(series, yhxw)
         
         # get cell information
         timepoint = get_timepoint(FileDict[cell, 'pre'])
         _, cell_n, foci = get_info(FileDict[cell, 'pre'])
         # prepare dataframe
-        df = df.append({'cell':cell, 
-                        'cell_number':cell_n, 
-                        'foci':foci, 
-                        'pre_series':pre_series, 
-                        'timepoint':timepoint, 
-                        'pre_total_Int':pre_tot_Int, 
-                        'pre_trajectory':pre_trajectory, 
-                        'pos_series':pos_series, 
-                        'pos_total_Int':pos_tot_Int, 
-                        'pos_trajectory':pos_trajectory},
-                        ignore_index=True)
+        this_dict = {'cell':cell, 
+                     'cell_number':cell_n, 
+                     'foci':foci,  
+                     'timepoint':timepoint,
+                     'pre_series':pre_series,
+                     'pre_trajectory':pre_trajectory, 
+                     'pos_series':pos_series,
+                     'pos_trajectory':pos_trajectory}
+
+        rec_to_dict(this_dict, pre_CP_far, 'pre_CP_far')
+        rec_to_dict(this_dict, pre_dark, 'pre_dark')
+        rec_to_dict(this_dict, pos_CP_far, 'pos_CP_far')
+        rec_to_dict(this_dict, pos_dark, 'pos_dark')
+        df = df.append(this_dict, ignore_index=True)
     
     # Characterize granule from pre series
-    pre_charac = {'pre_GR':[],
-                  'pre_std_GR':[],
-                  'pre_CP':[],
-                  'pre_std_CP':[],
-                  'area':[],
-                  'diameters':[]}
+    pre_charac_df = pd.DataFrame()
     for i in df.index:
-        means_I, stds_I, means_CP, stds_CP, areas, diameters = calculate_series(df.pre_series.values[i])
-        pre_charac['pre_GR'].append(means_I)
-        pre_charac['pre_std_GR'].append(stds_I)
-        pre_charac['pre_CP'].append(means_CP)
-        pre_charac['pre_std_CP'].append(stds_CP)
-        pre_charac['area'].append(areas)
-        pre_charac['diameters'].append(diameters)
+        this_GR, this_CP_near, areas, diameters = calculate_series(df.pre_series.values[i])
+        pre_charac = {'cell':df.cell.values[i], 'area':areas, 'diameter':diameters}
+        rec_to_dict(pre_charac, this_GR, 'pre_GR')
+        rec_to_dict(pre_charac, this_CP_near, 'pre_CP_near')
+        pre_charac_df = pre_charac_df.append(pre_charac, ignore_index=True)
     
-    for key, vect in pre_charac.items():
-        df[key] = vect
+    df = df.merge(pre_charac_df, on='cell')
     
     # Use radius to generate masks for post bleaching processing
-    pos_charac = {'pos_GR':[],
-                  'pos_std_GR':[],
-                  'pos_CP':[],
-                  'pos_std_CP':[]}
+    pos_charac_df = pd.DataFrame()
     for i in df.index:
         rad = np.nanmean(df.diameters.values[i])//2 + 1
-        means_I, stds_I, means_CP, stds_CP, _, _ = calculate_series(df.pos_series.values[i], rad) # if rad is not passed, previous segmentation is used
-        pos_charac['pos_GR'].append(means_I)
-        pos_charac['pos_std_GR'].append(stds_I)
-        pos_charac['pos_CP'].append(means_CP)
-        pos_charac['pos_std_CP'].append(stds_CP)
+        this_GR, this_CP_near, _, _ = calculate_series(df.pos_series.values[i], rad) # if rad is not passed, previous segmentation is used
+        pos_charac = {'cell':df.cell.values[i]}
+        rec_to_dict(pos_charac, this_GR, 'pos_GR')
+        rec_to_dict(pos_charac, this_CP_near, 'pos_CP_near')
+        pos_charac_df = pos_charac_df.append(pos_charac, ignore_index=True)
+
+    df = df.merge(pos_charac_df, on='cell')
     
-    for key, vect in pos_charac.items():
-        df[key] = vect
+    return df
     
+    #TODO: need to decide best reporters
     # add fluorescence calculation
     df['pre_f'] = list(map(calculate_fluorescence, df['pre_CP'], [1]*len(df['pre_CP'])))#df['pre_GR']))
     df['pos_f'] = list(map(calculate_fluorescence, df['pos_CP'], [1]*len(df['pre_CP'])))#df['pos_GR']))
