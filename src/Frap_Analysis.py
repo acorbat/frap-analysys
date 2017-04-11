@@ -49,7 +49,7 @@ def generate_FileDict(filepath):
     File_Dict -- Dictionary where keys are [cell, period] and values are the corresponding full path
     """
     filepath = pathlib.Path(filepath)
-    File_Dict = {(f.name.split('_')[0], f.name.split('_')[1][:-4]): f for f in filepath.glob('*.oif') if '_pos' in str(f.name) or '_pre' in str(f.name)}
+    File_Dict = {(f.name.split('_')[0], f.name.split('.')[0].split('_')[1]): f for f in filepath.glob('*.oif') if ('_pos' in str(f.name) or '_pre' in str(f.name)) and '_NO_' not in str(f.name)}
     return File_Dict
 
 
@@ -199,7 +199,7 @@ def get_size(filepath):
 
 # Functions to crop and mask images
 
-def crop_and_conc2(cell, FileDict):
+def crop_series(cell, FileDict):
     """
     Returns a concatenated series clipped from the bleaching clip.
     
@@ -367,6 +367,41 @@ def crop_and_shift(imgs, yhxw, filter_width=5, D=5):
     return stack, CP_far, dark, offsets
 
 
+def crop_and_shift_CP(imgs, yhxw, filter_width=5, D=5):
+    """
+    Returns the cropped series imgs starting from y,x with size h,w and centering the granule.
+    
+    Generates a crop at y,x with size h,w and centers the crop in the present granule using correlation with a centred disk.
+    From then on, the image is centered by correlating to previous image. If difference in image intensity percentile 20 and 80
+    is low, no correlation and tracking is done.
+    Inputs
+    imgs -- series to track and crop
+    yhxw -- tuple with (y position, height of crop, x position, crop width)
+    Returns
+    stack         -- stack of cropped and centered images
+    out_Intensity -- list of mean intensity of every image outside crop
+    offsets       -- list of (y,x) positions of crop (can be used as trajectory of granule)
+    """
+    y, h, x, w = yhxw
+    len_series, sh_y, sh_x = imgs.shape
+    stack = np.full((len_series, h, w), np.nan)
+    CP_far = generate_statVar(len_series)
+    dark = generate_statVar(len_series)
+    offsets = np.empty((len_series, 2), dtype=np.uint)
+    
+    for ndx in range(len_series):
+        img = imgs[ndx, :, :]
+        cropped = imcrop_wh(img, y, h, x, w)
+            
+        stack[ndx, :, :] = cropped.copy()
+        this_CP_far, this_dark = get_farCP(img, yhxw)
+        calculate_statvar(CP_far, ndx, this_CP_far)
+        calculate_statvar(dark, ndx, this_dark)
+        offsets[ndx, :] = (y, x)
+        
+    return stack, CP_far, dark, offsets
+
+
 def crop_and_conc(cell, FileDict):
     """
     Returns a concatenated series clipped from the bleaching clip.
@@ -438,7 +473,7 @@ def generate_masks(img, iterations):
     """
     log_img = np.log(img+1)
     thresh = threshold_otsu(log_img)
-    thresh = np.exp(thresh)-1
+    thresh = np.exp(thresh)-1 +50
     mask = img>thresh
     if iterations>0:
         mask = binary_opening(mask, iterations=iterations)
@@ -550,6 +585,42 @@ def calculate_series(series, rad=None):
     diameterss = np.asarray(diameterss)
     return GR, CP_near, areass, diameterss
 
+
+def calculate_series_CP(series, rad=None):
+    """
+    Calculates intensities and area of foci in image series.
+    
+    Applies the calculate_areas function to every image in 
+    the series returning the tuple of lists with the mean 
+    and standard deviation of foci and non-foci intensities
+    as well as foci mean area.
+    Inputs
+    series -- series of images to calculate foci intensities and area
+    Returns
+    means_I    -- list of mean weighted intensity of foci
+    stds_I     -- list of standard deviation of weighted intensity of foci
+    means_CP   -- list of mean weighted intensity of non-foci
+    stds_CP    -- list of standard deviation of weighted intensity of non-foci
+    areass     -- time series list of weighted area of foci
+    diameterss -- time series of equivalent circle diameter
+    """
+    len_series, sh_y, sh_x = series.shape
+    GR = generate_statVar(len_series)
+    CP_near = generate_statVar(len_series)
+    areass = []
+    diameterss = []
+    for ndx in range(len_series):
+        img = series[ndx, :, :]
+        calculate_statvar(GR, ndx, img.flatten())
+        calculate_statvar(CP_near, ndx, [])
+        areass.append(img.shape[0]*img.shape[1])
+        diameterss.append(0)
+    
+    areass =  np.asarray(areass)
+    diameterss = np.asarray(diameterss)
+    return GR, CP_near, areass, diameterss
+
+
 def calculate_fluorescence(CP, GR):
     """Returns list of GR/CP as normalization"""
     return np.asarray(GR/CP)
@@ -609,6 +680,7 @@ def process_frap(fp):
     # Load all cropped images from folder into dataframe
     df = pd.DataFrame()
     for cell in cells:
+        print(cell)
         # load complete image
         file_pre = FileDict[cell, 'pre']
         series = oif.imread(str(file_pre))[0]
@@ -620,13 +692,19 @@ def process_frap(fp):
         start = get_clip(file_ble)
         yhxw = (start[0], Size[0], start[1], Size[1])
         
-        pre_series, pre_CP_far, pre_dark, pre_trajectory = crop_and_shift(series, yhxw)
+        try:
+            pre_series, pre_CP_far, pre_dark, pre_trajectory = crop_and_shift(series, yhxw)
+        except ValueError:
+            continue
         
         # track and crop images post bleaching
         file_pos = FileDict[cell, 'pos']
         series = oif.imread(str(file_pos))[0]
         yhxw = (pre_trajectory[-1, 0], pre_series[0].shape[0], pre_trajectory[-1, 1], pre_series[0].shape[1])
-        pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift(series, yhxw)
+        try:
+            pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift(series, yhxw)
+        except:
+            continue
         
         # get cell information
         timepoint = get_timepoint(FileDict[cell, 'pre'])
@@ -650,6 +728,7 @@ def process_frap(fp):
     # Characterize granule from pre series
     pre_charac_df = pd.DataFrame()
     for i in df.index:
+        print('pre characterization '+df.cell.values[i])
         this_GR, this_CP_near, areas, diameters = calculate_series(df.pre_series.values[i])
         pre_charac = {'cell':df.cell.values[i], 'area':areas, 'diameter':diameters}
         rec_to_dict(pre_charac, this_GR, 'pre_GR')
@@ -661,7 +740,17 @@ def process_frap(fp):
     # Use radius to generate masks for post bleaching processing
     pos_charac_df = pd.DataFrame()
     for i in df.index:
+        print('pos '+df.cell.values[i])
+        print(df.diameter.values[i])
+        # TODO: THIS IS A MESS
+        try:
+            for val in range(len(df.diameter.values[i])):
+                if not df.diameter.values[i][val]:
+                    df.diameter.values[i] = np.nan
+        except TypeError:
+            pass
         rad = np.nanmean(df.diameter.values[i])//2 + 1
+        print(rad)
         this_GR, this_CP_near, _, _ = calculate_series(df.pos_series.values[i], rad) # if rad is not passed, previous segmentation is used
         pos_charac = {'cell':df.cell.values[i]}
         rec_to_dict(pos_charac, this_GR, 'pos_GR')
@@ -670,12 +759,127 @@ def process_frap(fp):
 
     df = df.merge(pos_charac_df, on='cell')
     
+    #TODO: need to decide best reporters
+    # add fluorescence calculation
+    df['pre_f'] = list(map(calculate_fluorescence, df['pre_CP_far_mean'], df['pre_GR_sum']))
+    df['pos_f'] = list(map(calculate_fluorescence, df['pos_CP_far_mean'], df['pos_GR_sum']))
+    
+    # Add pre bleach mean intensity and normalize post bleach fluorescence with it   
+    df['mean_pre_I'] = list(map(np.nanmean, df['pre_f']))
+    lambdafunc = lambda x, y: x/y
+    df['f_corr'] = list(map(lambdafunc, df['pos_f'], df['mean_pre_I']))
+    
+    df = add_fitParams(df, Plot=True)
+    
     return df
+
+
+def process_frap_CP(fp):
+    """
+    TODO: correct documentation
+    Generates dataframe with with images and attributes of each cell in the fp filepath.
+    
+    Sweeps the fp directory for oif files of cells and concatenates the pre and pos images
+    cropping the image with the clip selection for bleaching found in the ble oif file.
+    The DataFrame returned has cell name ('cell'), cell number ('cell_number'), foci number
+    ('foci'), cropped image series ('series'), timepoint ('timepoint'), and total intensity 
+    of non-cropped region of the image ('total_Int')
+    Inputs
+    fp -- filepath of the folder containing oif files
+    Returns
+    df -- pandas DataFrame containing the information of the oif files
+    """
+    FileDict = generate_FileDict(fp)
+    
+    cells = set()
+    for key in FileDict.keys():
+        cells.add(key[0])
+    
+    # Load all cropped images from folder into dataframe
+    df = pd.DataFrame()
+    for cell in cells:
+        print(cell)
+        # load complete image
+        file_pre = FileDict[cell, 'pre']
+        series = oif.imread(str(file_pre))[0]
+        
+        # track and crop images pre bleaching
+        file_ble = file_pre.parent
+        file_ble = file_ble.joinpath(str(file_pre.name).replace('_pre', '_ble'))
+        Size = get_size(file_ble)
+        start = get_clip(file_ble)
+        yhxw = (start[0], Size[0], start[1], Size[1])
+        
+        try:
+            pre_series, pre_CP_far, pre_dark, pre_trajectory = crop_and_shift_CP(series, yhxw)
+        except ValueError:
+            continue
+        
+        # track and crop images post bleaching
+        file_pos = FileDict[cell, 'pos']
+        series = oif.imread(str(file_pos))[0]
+        yhxw = (pre_trajectory[-1, 0], pre_series[0].shape[0], pre_trajectory[-1, 1], pre_series[0].shape[1])
+        try:
+            pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift_CP(series, yhxw)
+        except:
+            continue
+        
+        # get cell information
+        timepoint = get_timepoint(FileDict[cell, 'pre'])
+        _, cell_n, foci = get_info(FileDict[cell, 'pre'])
+        # prepare dataframe
+        this_dict = {'cell':cell, 
+                     'cell_number':cell_n, 
+                     'foci':foci,  
+                     'timepoint':timepoint,
+                     'pre_series':pre_series,
+                     'pre_trajectory':pre_trajectory, 
+                     'pos_series':pos_series,
+                     'pos_trajectory':pos_trajectory}
+
+        rec_to_dict(this_dict, pre_CP_far, 'pre_CP_far')
+        rec_to_dict(this_dict, pre_dark, 'pre_dark')
+        rec_to_dict(this_dict, pos_CP_far, 'pos_CP_far')
+        rec_to_dict(this_dict, pos_dark, 'pos_dark')
+        df = df.append(this_dict, ignore_index=True)
+    
+    # Characterize granule from pre series
+    pre_charac_df = pd.DataFrame()
+    for i in df.index:
+        print('pre characterization '+df.cell.values[i])
+        this_GR, this_CP_near, areas, diameters = calculate_series_CP(df.pre_series.values[i])
+        pre_charac = {'cell':df.cell.values[i], 'area':areas, 'diameter':diameters}
+        rec_to_dict(pre_charac, this_GR, 'pre_GR')
+        rec_to_dict(pre_charac, this_CP_near, 'pre_CP_near')
+        pre_charac_df = pre_charac_df.append(pre_charac, ignore_index=True)
+    
+    df = df.merge(pre_charac_df, on='cell')
+    
+    # Use radius to generate masks for post bleaching processing
+    pos_charac_df = pd.DataFrame()
+    for i in df.index:
+        print('pos '+df.cell.values[i])
+        print(df.diameter.values[i])
+        # TODO: THIS IS A MESS
+        try:
+            for val in range(len(df.diameter.values[i])):
+                if not df.diameter.values[i][val]:
+                    df.diameter.values[i] = np.nan
+        except TypeError:
+            pass
+        
+        this_GR, this_CP_near, _, _ = calculate_series_CP(df.pos_series.values[i]) # if rad is not passed, previous segmentation is used
+        pos_charac = {'cell':df.cell.values[i]}
+        rec_to_dict(pos_charac, this_GR, 'pos_GR')
+        rec_to_dict(pos_charac, this_CP_near, 'pos_CP_near')
+        pos_charac_df = pos_charac_df.append(pos_charac, ignore_index=True)
+
+    df = df.merge(pos_charac_df, on='cell')
     
     #TODO: need to decide best reporters
     # add fluorescence calculation
-    df['pre_f'] = list(map(calculate_fluorescence, df['pre_CP'], [1]*len(df['pre_CP'])))#df['pre_GR']))
-    df['pos_f'] = list(map(calculate_fluorescence, df['pos_CP'], [1]*len(df['pre_CP'])))#df['pos_GR']))
+    df['pre_f'] = list(map(calculate_fluorescence, df['pre_CP_far_mean'], df['pre_GR_sum']))
+    df['pos_f'] = list(map(calculate_fluorescence, df['pos_CP_far_mean'], df['pos_GR_sum']))
     
     # Add pre bleach mean intensity and normalize post bleach fluorescence with it   
     df['mean_pre_I'] = list(map(np.nanmean, df['pre_f']))
@@ -782,3 +986,129 @@ def add_fitParams(df, Plot=False):
     df['tau'] = taus
     
     return df
+
+#%% Some testing functions
+
+def _my_plot(variable, pp=None):
+    for i in df.index:
+        time = np.arange(0, len(df[variable+'_mean'].values[i])*df.timepoint.values[i], df.timepoint.values[i])
+        fig, ax1 = plt.subplots()
+        mean, = ax1.plot(time, df[variable+'_mean'].values[i]/np.nanmean(df[variable+'_mean'].values[i]), label='mean')
+        mode, = ax1.plot(time, df[variable+'_mode'].values[i]/np.nanmean(df[variable+'_mode'].values[i]), label='mode')
+        medi, = ax1.plot(time, df[variable+'_median'].values[i]/np.nanmean(df[variable+'_median'].values[i]), label='median')
+        p20,  = ax1.plot(time, df[variable+'_p20'].values[i]/np.nanmean(df[variable+'_p20'].values[i]), label='p20')
+        p80,  = ax1.plot(time, df[variable+'_p80'].values[i]/np.nanmean(df[variable+'_p80'].values[i]), label='p80')
+        
+        #ax2 = ax1.twinx()
+        sums, = ax1.plot(time, df[variable+'_sum'].values[i]/np.nanmean(df[variable+'_sum'].values[i]), 'k', label='sum')
+        fig.legend((mean, mode, medi, p20, p80, sums), ('mean', 'mode', 'medi', 'p20', 'p80', 'sums'), 'upper left')
+        ax1.set_title(variable)
+        if pp is not None:
+            pp.savefig(fig)
+        plt.show()
+        print(i)
+
+from matplotlib.backends.backend_pdf import PdfPages
+
+intensities = ['pre_GR', 'pre_CP_near', 'pre_CP_far', 'pre_dark', 'pos_GR', 'pos_CP_near', 'pos_CP_far', 'pos_dark']
+
+pp = PdfPages('stat_vars1.pdf')
+
+for intensity in intensities:
+    _my_plot(intensity, pp)
+
+pp.close()
+
+#%% Plot with different masks
+
+def _difMaskPlot(variable, pp=None):
+    stats = ['_mean', '_mode', '_median', '_p20', '_p80', '_sum']
+    for i in df.index:
+        for stat in stats:
+            time = np.arange(0, len(df[variable+stat].values[i])*df.timepoint.values[i], df.timepoint.values[i])
+            plt.plot(time, df[variable+stat].values[i]/np.nanmean(df[variable+stat].values[i]), label='normal')
+            plt.plot(time, df_menos10[variable+stat].values[i]/np.nanmean(df_menos10[variable+stat].values[i]), label='menos 10')
+            plt.plot(time, df_menos50[variable+stat].values[i]/np.nanmean(df_menos50[variable+stat].values[i]), label='menos 50')
+            plt.plot(time, df_mas10[variable+stat].values[i]/np.nanmean(df_mas10[variable+stat].values[i]), label='mas 10')
+            plt.plot(time, df_mas50[variable+stat].values[i]/np.nanmean(df_mas50[variable+stat].values[i]), label='mas 50')
+            
+            plt.legend(loc=2)
+            plt.title(str(i)+' '+variable+stat)
+            if pp is not None:
+                pp.savefig()
+            plt.show()
+            print(i)
+
+from matplotlib.backends.backend_pdf import PdfPages
+
+intensities = ['pre_GR', 'pre_CP_near', 'pre_CP_far', 'pre_dark', 'pos_GR', 'pos_CP_near', 'pos_CP_far', 'pos_dark']
+
+pp = PdfPages('Vary_masks.pdf')
+
+for intensity in intensities:
+    _difMaskPlot(intensity, pp)
+
+pp.close()
+
+#%%
+
+def cell_chooser(this_df, that_df):
+    for i in that_df.index:
+        print(that_df['cell'][i])
+        this_f = that_df['f_corr'].values[i]
+        timepoint = that_df['timepoint'].values[i]
+        max_temp = len(this_f)*timepoint
+        t = np.arange(0, max_temp, timepoint)
+        Amp = that_df['Amp'].values[i]
+        Imm = that_df['Imm'].values[i]
+        tau = that_df['tau'].values[i]
+        
+        plt.plot(t, Frap_Func(t, Amp, Imm, tau), 'r')
+        plt.scatter(t[:len(this_f)], this_f)
+        plt.title(that_df['cell'][i])
+        plt.xlabel('Time (s)')
+        plt.ylabel('Fraction I (u.a.)')
+        #plt.xlim((0,2))
+        plt.show()
+        print('Amplitude: '+str(Amp))
+        print('Imm Frac: '+str(Imm))
+        print('tau: '+str(tau))
+        print('k: '+str(1/tau))
+        
+        answer = input('Is it ok?')
+        if answer=='y':
+            this_df = this_df.append(that_df[i:i+1])
+        
+    return this_df
+
+#%% 
+
+def boxplot(data_to_plot, title):
+    bp = plt.boxplot(data_to_plot, patch_artist=True)
+    
+    ## change outline color, fill color and linewidth of the boxes
+    for box in bp['boxes']:
+        # change outline color
+        box.set( color='k', linewidth=2)
+        # change fill color
+        box.set( facecolor = 'b' )
+    
+    ## change color and linewidth of the whiskers
+    for whisker in bp['whiskers']:
+        whisker.set(color='k', linewidth=2)
+    
+    ## change color and linewidth of the caps
+    for cap in bp['caps']:
+        cap.set(color='k', linewidth=2)
+    
+    ## change color and linewidth of the medians
+    for median in bp['medians']:
+        median.set(color='r', linewidth=2)
+    
+    ## change the style of fliers and their fill
+    for flier in bp['fliers']:
+        flier.set(marker='o', color='r', alpha=0.5)
+    
+    ## Custom x-axis labels
+    plt.xticks([1, 2, 3], ['FL', 'DSAM', 'YFP'])
+    plt.title(title)
