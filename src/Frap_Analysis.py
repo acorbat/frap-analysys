@@ -101,6 +101,42 @@ def get_info(filepath):
     return cell, cell_n, foci
 
 
+def get_metadata(filepath):
+    """
+    Gets the whole metadata from the filepath series of .oif file
+    
+    Input
+    filepath -- The filepath to the image whos metadata is desired
+    Return
+    metadata -- A dictionary of dictionaries containing the metadata classified into subsets
+    """
+    filepath = pathlib.Path(filepath)
+    this_filepath = filepath.parent
+    this_filepath = this_filepath.joinpath(filepath.name + '.files\s_C001T001.pty')
+    this_filepath = pathlib.Path(this_filepath)
+    
+    with open(str(this_filepath), 'rb') as file:
+        metadata = dict()
+        present_dict = 'General'
+        metadata[present_dict] = dict()
+        for row in file:
+            try:
+                this_r = row.decode("utf-8")
+                this_r = this_r.replace('\00', '')
+                this_r = this_r.replace('\r', '')
+                this_r = this_r.replace('\n', '')
+                if this_r.startswith('['):
+                    present_dict = this_r[1:-1]
+                    metadata[present_dict] = dict()
+                else:
+                    this_r = this_r.split('=')
+                    metadata[present_dict][this_r[0]] = this_r[1]
+            except:
+                pass
+            
+    return metadata
+
+
 def get_timepoint(filepath):
     """
     Retrieves timepoint from .files folder of the .oif file selected in filepath
