@@ -22,6 +22,7 @@ from scipy.optimize import curve_fit
 from scipy.ndimage.morphology import binary_opening
 from skimage.filters import threshold_otsu
 from skimage.draw import circle
+from datetime import datetime, timedelta
 
 os.chdir(r'C:\Users\Agus\Documents\Laboratorio\uVesiculas\FRAP_Analysis\src')
 import oiffile as oif
@@ -111,11 +112,8 @@ def get_metadata(filepath):
     metadata -- A dictionary of dictionaries containing the metadata classified into subsets
     """
     filepath = pathlib.Path(filepath)
-    this_filepath = filepath.parent
-    this_filepath = this_filepath.joinpath(filepath.name + '.files\s_C001T001.pty')
-    this_filepath = pathlib.Path(this_filepath)
     
-    with open(str(this_filepath), 'rb') as file:
+    with open(str(filepath), 'rb') as file:
         metadata = dict()
         present_dict = 'General'
         metadata[present_dict] = dict()
@@ -231,6 +229,34 @@ def get_size(filepath):
                 except:
                     continue
     return (Sizes['Y'], Sizes['X'])
+
+
+def get_time(filepath):
+    """
+    Generates time vector for pos file with t=0 when bleaching has ended
+    """
+    filepath = pathlib.Path(filepath)
+    file_ble = filepath.parent
+    file_ble = file_ble.joinpath(str(filepath.name).replace('_pos', '_ble'))
+    # Get timepoints and metadata from pos and ble files
+    pos_timepoint = get_timepoint(filepath)
+    ble_timepoint = get_timepoint(file_ble)
+    pos_meta = get_metadata(filepath)
+    ble_meta = get_metadata(file_ble)
+    # Get Acquisition initial time
+    time_format = "%Y-%m-%d %H:%M:%S %f"
+    ble_ini = ble_meta['General']['ImageCaputreDate'][1:-1]+' '+ble_meta['General']['ImageCaputreDate+MilliSec']
+    pos_ini = pos_meta['General']['ImageCaputreDate'][1:-1]+' '+pos_meta['General']['ImageCaputreDate+MilliSec']
+    ble_ini = datetime.strptime(ble_ini, time_format)
+    pos_ini = datetime.strptime(pos_ini, time_format)
+    # Estimate end of bleaching
+    ble_time = timedelta(seconds=float(ble_meta['Axis 4 Parameters Common']['MaxSize'])*ble_timepoint)
+    pos_time = float(pos_meta['Axis 4 Parameters Common']['MaxSize'])*pos_timepoint
+    ble_end = ble_ini + ble_time
+    # time vector
+    start = pos_ini-ble_end
+    t = np.arange(start.total_seconds(), start.total_seconds()+pos_time, pos_timepoint)
+    print(t)
 
 
 # Functions to crop and mask images
