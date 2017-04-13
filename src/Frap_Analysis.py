@@ -256,7 +256,8 @@ def get_time(filepath):
     # time vector
     start = pos_ini-ble_end
     t = np.arange(start.total_seconds(), start.total_seconds()+pos_time, pos_timepoint)
-    print(t)
+    
+    return t
 
 
 # Functions to crop and mask images
@@ -771,6 +772,7 @@ def process_frap(fp):
         # get cell information
         timepoint = get_timepoint(FileDict[cell, 'pre'])
         _, cell_n, foci = get_info(FileDict[cell, 'pre'])
+        t = get_time(FileDict[cell, 'pos'])
         # prepare dataframe
         this_dict = {'cell':cell, 
                      'cell_number':cell_n, 
@@ -779,7 +781,8 @@ def process_frap(fp):
                      'pre_series':pre_series,
                      'pre_trajectory':pre_trajectory, 
                      'pos_series':pos_series,
-                     'pos_trajectory':pos_trajectory}
+                     'pos_trajectory':pos_trajectory,
+                     't':t}
 
         rec_to_dict(this_dict, pre_CP_far, 'pre_CP_far')
         rec_to_dict(this_dict, pre_dark, 'pre_dark')
@@ -889,6 +892,7 @@ def process_frap_CP(fp):
         # get cell information
         timepoint = get_timepoint(FileDict[cell, 'pre'])
         _, cell_n, foci = get_info(FileDict[cell, 'pre'])
+        t = get_time(FileDict[cell, 'pos'])
         # prepare dataframe
         this_dict = {'cell':cell, 
                      'cell_number':cell_n, 
@@ -897,7 +901,8 @@ def process_frap_CP(fp):
                      'pre_series':pre_series,
                      'pre_trajectory':pre_trajectory, 
                      'pos_series':pos_series,
-                     'pos_trajectory':pos_trajectory}
+                     'pos_trajectory':pos_trajectory,
+                     't':t}
 
         rec_to_dict(this_dict, pre_CP_far, 'pre_CP_far')
         rec_to_dict(this_dict, pre_dark, 'pre_dark')
@@ -1014,13 +1019,10 @@ def add_fitParams(df, Plot=False):
     for i in df.index:
         print(df['cell'][i])
         this_f = df['f_corr'][i]
+        this_t = df['t'][i]
         
-        timepoint = df['timepoint'][i]
-        max_temp = len(this_f)*timepoint
-        t = np.arange(0, max_temp, timepoint)
-        t = t[:len(this_f)]
         try:
-            popt, pcov = curve_fit(Frap_Func, t[np.isfinite(this_f)], this_f[np.isfinite(this_f)], p0=[2000, 15, 5])
+            popt, pcov = curve_fit(Frap_Func, this_t[np.isfinite(this_f)], this_f[np.isfinite(this_f)], p0=[2000, 15, 5])
         except TypeError:
             popt = [np.nan,np.nan,np.nan]
         
@@ -1031,8 +1033,8 @@ def add_fitParams(df, Plot=False):
         taus.append(tau)
         
         if Plot:
-            plt.plot(t, Frap_Func(t, Amp, Imm, tau), 'r')
-            plt.scatter(t, this_f)
+            plt.plot(this_t, Frap_Func(this_t, Amp, Imm, tau), 'r')
+            plt.scatter(this_t, this_f)
             plt.title(df['cell'][i])
             plt.xlabel('Time (s)')
             plt.ylabel('Fraction I (u.a.)')
