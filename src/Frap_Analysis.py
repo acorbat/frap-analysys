@@ -55,12 +55,18 @@ def generate_FileDict(filepath):
 
 
 def generate_statVar(shape):
+    """
+    Initializes a structured array filled with nans to contain the statistics of data.
+    """
     rec = np.recarray((shape, ), [('sum', float), ('mean', float), ('mode', float), ('median', float), ('p20', float), ('p80', float)])
     rec.fill(np.nan)
     return rec
 
 
 def calculate_statvar(rec, ind, vect):
+    """
+    Adds statistics of vect to the structured array rec at the index ind.
+    """
     if len(vect)>0:
         rec['sum'][ind] = np.nansum(vect)
         rec['mean'][ind] = np.nanmean(vect)
@@ -73,6 +79,9 @@ def calculate_statvar(rec, ind, vect):
 
 
 def rec_to_dict(this_dict, rec, suffix):
+    """
+    Transfers structured array rec to dictionary this dict where each statistical field is preluded by the suffix.
+    """
     for field in rec.dtype.names:
         this_dict[suffix+'_'+field] = rec[field]
 
