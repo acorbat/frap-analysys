@@ -50,7 +50,7 @@ def generate_FileDict(filepath):
     File_Dict -- Dictionary where keys are [cell, period] and values are the corresponding full path
     """
     filepath = pathlib.Path(filepath)
-    File_Dict = {(f.name.split('_')[0], f.name.split('.')[0].split('_')[1]): f for f in filepath.glob('*.oif') if ('_pos' in str(f.name) or '_pre' in str(f.name)) and '_NO_' not in str(f.name)}
+    File_Dict = {(f.stem.split('_')[:-1]): f for f in filepath.glob('*.oif') if ('_pos' in str(f.name) or '_pre' in str(f.name)) and '_NO_' not in str(f.name)}
     return File_Dict
 
 
@@ -755,19 +755,14 @@ def process_frap(fp):
         start = get_clip(file_ble)
         yhxw = (start[0], Size[0], start[1], Size[1])
         
-        try:
-            pre_series, pre_CP_far, pre_dark, pre_trajectory = crop_and_shift(series, yhxw)
-        except ValueError:
-            continue
+        pre_series, pre_CP_far, pre_dark, pre_trajectory = crop_and_shift(series, yhxw)
         
         # track and crop images post bleaching
         file_pos = FileDict[cell, 'pos']
         series = oif.imread(str(file_pos))[0]
         yhxw = (pre_trajectory[-1, 0], pre_series[0].shape[0], pre_trajectory[-1, 1], pre_series[0].shape[1])
-        try:
-            pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift(series, yhxw)
-        except:
-            continue
+        
+        pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift(series, yhxw)
         
         # get cell information
         timepoint = get_timepoint(FileDict[cell, 'pre'])
