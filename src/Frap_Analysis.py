@@ -50,7 +50,7 @@ def generate_FileDict(filepath):
     File_Dict -- Dictionary where keys are [cell, period] and values are the corresponding full path
     """
     filepath = pathlib.Path(filepath)
-    File_Dict = {(f.stem.split('_')[:-1]): f for f in filepath.glob('*.oif') if ('_pos' in str(f.name) or '_pre' in str(f.name)) and '_NO_' not in str(f.name)}
+    File_Dict = {tuple(f.stem.split('_')[:-1]): f for f in filepath.glob('*.oif') if ('_pos' in str(f.name) or '_pre' in str(f.name))}
     return File_Dict
 
 
