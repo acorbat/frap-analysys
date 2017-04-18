@@ -802,7 +802,6 @@ def process_frap(fp):
 
     df = df.merge(pos_charac_df, on='cell')
     
-    #TODO: need to decide best reporters
     # add fluorescence calculation
     df['pre_f'] = list(map(calculate_fluorescence, df['pre_CP_far_mean'], df['pre_GR_sum']))
     df['pos_f'] = list(map(calculate_fluorescence, df['pos_CP_far_mean'], df['pos_GR_sum']))
@@ -937,60 +936,6 @@ def process_frap_CP(fp):
     return df
 
 
-def add_foregroundSeries(df):
-    means_Is = []
-    stds_Is = []
-    means_CPs = []
-    stds_CPs = []
-    areass = []
-    for i in df.index:
-        series = df['series'][i]
-        
-        means_I, stds_I, means_CP, stds_CP, areas, _ = calculate_series(series)
-        
-        means_Is.append(means_I)
-        stds_Is.append(stds_I)
-        means_CPs.append(means_CP)
-        stds_CPs.append(stds_CP)
-        areass.append(areas)
-    
-    df['mean_GR'] = means_Is
-    df['std_GR'] = stds_Is
-    df['mean_CP'] = means_CPs
-    df['std_CP'] = stds_CPs
-    df['area'] = areass
-
-    return df
-
-def add_fluorescence(df):
-    fs = []
-    for i in df.index:
-        CP = df['mean_CP'][i]
-        GR = df['mean_GR'][i]
-        f = calculate_fluorescence(CP, GR)
-        fs.append(f)
-    df['f'] = fs
-    return df
-
-def add_f_corr(df):
-    pre_bleachs = []
-    post_bleachs = []
-    pre_areas = []
-    for i in df.index:
-        this_f = df['f'][i]
-        pre_bleach = np.mean(this_f[:20])
-        pre_area = np.mean(df['area'][i][:20])
-        post_bleach = this_f[20:]/pre_bleach
-        
-        pre_bleachs.append(pre_bleach)
-        pre_areas.append(pre_area)
-        post_bleachs.append(post_bleach)
-    
-    df['pre_I'] = pre_bleachs
-    df['pre_area'] = pre_areas
-    df['f_corr'] = post_bleachs
-    return df
-
 def add_fitParams(df, Plot=False):
     Amps = []
     Imms = []
@@ -1100,6 +1045,62 @@ def add_fitParams2(df, Plot=False):
     df['Imm_non'] = Imms
     df['tau_non'] = taus
     
+    return df
+
+
+def add_foregroundSeries(df):
+    means_Is = []
+    stds_Is = []
+    means_CPs = []
+    stds_CPs = []
+    areass = []
+    for i in df.index:
+        series = df['series'][i]
+        
+        means_I, stds_I, means_CP, stds_CP, areas, _ = calculate_series(series)
+        
+        means_Is.append(means_I)
+        stds_Is.append(stds_I)
+        means_CPs.append(means_CP)
+        stds_CPs.append(stds_CP)
+        areass.append(areas)
+    
+    df['mean_GR'] = means_Is
+    df['std_GR'] = stds_Is
+    df['mean_CP'] = means_CPs
+    df['std_CP'] = stds_CPs
+    df['area'] = areass
+
+    return df
+
+def add_fluorescence(df):
+    fs = []
+    for i in df.index:
+        CP = df['mean_CP'][i]
+        GR = df['mean_GR'][i]
+        f = calculate_fluorescence(CP, GR)
+        fs.append(f)
+    df['f'] = fs
+    return df
+
+
+def add_f_corr(df):
+    pre_bleachs = []
+    post_bleachs = []
+    pre_areas = []
+    for i in df.index:
+        this_f = df['f'][i]
+        pre_bleach = np.mean(this_f[:20])
+        pre_area = np.mean(df['area'][i][:20])
+        post_bleach = this_f[20:]/pre_bleach
+        
+        pre_bleachs.append(pre_bleach)
+        pre_areas.append(pre_area)
+        post_bleachs.append(post_bleach)
+    
+    df['pre_I'] = pre_bleachs
+    df['pre_area'] = pre_areas
+    df['f_corr'] = post_bleachs
     return df
 
 
