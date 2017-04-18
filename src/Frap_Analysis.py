@@ -432,6 +432,13 @@ def crop_and_shift(imgs, yhxw, filter_width=5, D=5):
             x += (pos[1] - correlation.shape[1]//2)
             cropped = imcrop_wh(img, y, h, x, w)
             
+        # Check cropped image has the same size
+        if cropped.shape != (h, w):
+            dif_shape = dif_shape = np.asarray([h, w]) - np.asarray(cropped.shape)
+            new_cropped = np.full((h,w), np.nan)
+            x, y = dif_shape//2
+            new_cropped[y:y+cropped.shape[0], x:x+cropped.shape[1]] = cropped
+            cropped = new_cropped.copy()
         stack[ndx, :, :] = cropped.copy()
         this_CP_far, this_dark = get_farCP(img, yhxw)
         calculate_statvar(CP_far, ndx, this_CP_far)
@@ -786,16 +793,7 @@ def process_frap(fp):
     pos_charac_df = pd.DataFrame()
     for i in df.index:
         print('pos '+df.cell.values[i])
-        print(df.diameter.values[i])
-        # TODO: THIS IS A MESS
-        try:
-            for val in range(len(df.diameter.values[i])):
-                if not df.diameter.values[i][val]:
-                    df.diameter.values[i] = np.nan
-        except TypeError:
-            pass
         rad = np.nanmean(df.diameter.values[i])//2 + 1
-        print(rad)
         this_GR, this_CP_near, _, _ = calculate_series(df.pos_series.values[i], rad) # if rad is not passed, previous segmentation is used
         pos_charac = {'cell':df.cell.values[i]}
         rec_to_dict(pos_charac, this_GR, 'pos_GR')
