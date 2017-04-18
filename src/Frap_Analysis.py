@@ -602,6 +602,8 @@ def calculate_areas(img, rad=None):
         else:
             mask = circle_mask(img, rad)
         if not mask.any():
+            areas = 0
+            diameters = 0
             continue
         # Select only centered granule
         labeled = meas.label(mask)
