@@ -806,7 +806,9 @@ def process_frap(fp):
     df['pre_f'] = list(map(calculate_fluorescence, df['pre_CP_far_mean'], df['pre_GR_sum']))
     df['pos_f'] = list(map(calculate_fluorescence, df['pos_CP_far_mean'], df['pos_GR_sum']))
     
-    # Add pre bleach mean intensity and normalize post bleach fluorescence with it   
+    # Add pre bleach mean intensity and normalize post bleach fluorescence with it
+    df['mean_area'] = list(map(np.nanmean, df['area']))
+    df['mean_diameter'] = list(map(np.nanmean, df['diameter']))
     df['mean_pre_I'] = list(map(np.nanmean, df['pre_f']))
     lambdafunc = lambda x, y: x/y
     df['f_corr'] = list(map(lambdafunc, df['pos_f'], df['mean_pre_I']))
@@ -1230,3 +1232,24 @@ def boxplot(data_to_plot, title):
     ## Custom x-axis labels
     plt.xticks([1, 2, 3], ['FL', 'DSAM', 'YFP'])
     plt.title(title)
+
+
+#%% Load and filter FL
+
+df_all = pd.read_pickle('fl.pandas')
+
+for i in df_all.index:
+    if abs(df_all.mean_area[i]-np.pi*((df_all.mean_diameter[i]/2)**2))/df_all.mean_area[i]>0.15:
+        df_all = df_all.drop(i)
+for i in df_all.index:
+    if df_all.tau[i]>40:
+        df_all = df_all.drop(i)
+for i in df_all.index:
+    if df_all.Imm[i]>1:
+        df_all = df_all.drop(i)
+for i in df_all.index:
+    if df_all.Amp[i]>1:
+        df_all = df_all.drop(i)
+for i in df_all.index:
+    if df_all.mean_pre_I[i]>3500:
+        df_all = df_all.drop(i)
