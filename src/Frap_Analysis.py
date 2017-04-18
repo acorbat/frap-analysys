@@ -347,7 +347,7 @@ def imcrop_wh(im, y1, h, x1, w):
     return im[y1:y2, x1:x2]
 
 
-def get_farCP(img, yhxw, add=10):
+def get_farCP(img, yhxw, add=40):
     """
     Discard close bleaching zone and estimate citoplasm median intensity.
     
@@ -375,7 +375,7 @@ def get_farCP(img, yhxw, add=10):
     y1 = clip(y, 0, sh[1])
     y2 = clip(y + h, 0, sh[1])
     img[y1:y2, x1:x2] = np.nan
-    
+    """
     # Generate mask for citoplasm
     extra_thresh = 20
     upper_thresh = threshold_otsu(img)
@@ -389,7 +389,9 @@ def get_farCP(img, yhxw, add=10):
     
     # Prepare values to return
     CP_far = img[mask]
-    dark = img[img<lower_thresh]
+    dark = img[img<lower_thresh]"""
+    CP_far = img.flatten()
+    dark = [1,2,3,4]
     return CP_far, dark
 
     
@@ -699,34 +701,6 @@ def calculate_fluorescence(CP, GR):
 
 # Functions that create and add columns to pandas dataframe
 
-def generate_df(fp):
-    """
-    Generates dataframe with with images and attributes of each cell in the fp filepath.
-    
-    Sweeps the fp directory for oif files of cells and concatenates the pre and pos images
-    cropping the image with the clip selection for bleaching found in the ble oif file.
-    The DataFrame returned has cell name ('cell'), cell number ('cell_number'), foci number
-    ('foci'), cropped image series ('series'), timepoint ('timepoint'), and total intensity 
-    of non-cropped region of the image ('total_Int')
-    Inputs
-    fp -- filepath of the folder containing oif files
-    Returns
-    df -- pandas DataFrame containing the information of the oif files
-    """
-    FileDict = generate_FileDict(fp)
-    
-    cells = set()
-    for key in FileDict.keys():
-        cells.add(key[0])
-    
-    df = pd.DataFrame()
-    for cell in cells:
-        series, tot_Int = crop_and_conc(cell, FileDict)
-        timepoint = get_timepoint(FileDict[cell, 'pre'])
-        _, cell_n, foci = get_info(FileDict[cell, 'pre'])
-        df = df.append({'cell':cell, 'cell_number':cell_n, 'foci':foci, 'series':series, 'timepoint':timepoint, 'total_Int':tot_Int}, ignore_index=True)
-    return df
-
 
 def process_frap(fp):
     """
@@ -839,6 +813,7 @@ def process_frap(fp):
     df['f_corr'] = list(map(lambdafunc, df['pos_f'], df['mean_pre_I']))
     
     df = add_fitParams(df, Plot=True)
+    df = add_fitParams2(df, Plot=True)
     
     return df
 
@@ -1055,6 +1030,79 @@ def add_fitParams(df, Plot=False):
     
     return df
 
+
+#%% (G)Oldies
+
+def generate_df(fp):
+    """
+    Generates dataframe with with images and attributes of each cell in the fp filepath.
+    
+    Sweeps the fp directory for oif files of cells and concatenates the pre and pos images
+    cropping the image with the clip selection for bleaching found in the ble oif file.
+    The DataFrame returned has cell name ('cell'), cell number ('cell_number'), foci number
+    ('foci'), cropped image series ('series'), timepoint ('timepoint'), and total intensity 
+    of non-cropped region of the image ('total_Int')
+    Inputs
+    fp -- filepath of the folder containing oif files
+    Returns
+    df -- pandas DataFrame containing the information of the oif files
+    """
+    FileDict = generate_FileDict(fp)
+    
+    cells = set()
+    for key in FileDict.keys():
+        cells.add(key[0])
+    
+    df = pd.DataFrame()
+    for cell in cells:
+        series, tot_Int = crop_and_conc(cell, FileDict)
+        timepoint = get_timepoint(FileDict[cell, 'pre'])
+        _, cell_n, foci = get_info(FileDict[cell, 'pre'])
+        df = df.append({'cell':cell, 'cell_number':cell_n, 'foci':foci, 'series':series, 'timepoint':timepoint, 'total_Int':tot_Int}, ignore_index=True)
+    return df
+
+
+def add_fitParams2(df, Plot=False):
+    Amps = []
+    Imms = []
+    taus = []
+    for i in df.index:
+        print(df['cell'][i])
+        this_f = df['f_corr'][i]
+        this_t = df['t'][i]
+        this_t = np.arange(0, df.timepoint[i]*len(this_f), df.timepoint[i])
+        
+        try:
+            popt, pcov = curve_fit(Frap_Func, this_t[np.isfinite(this_f)], this_f[np.isfinite(this_f)], p0=[2000, 15, 5])
+        except TypeError:
+            popt = [np.nan,np.nan,np.nan]
+        
+        Amp, Imm, tau = popt[0], popt[1], popt[2]
+        
+        Amps.append(Amp)
+        Imms.append(Imm)
+        taus.append(tau)
+        
+        if Plot:
+            plt.plot(this_t, Frap_Func(this_t, Amp, Imm, tau), 'r')
+            plt.scatter(this_t, this_f)
+            plt.title(df['cell'][i])
+            plt.xlabel('Time (s)')
+            plt.ylabel('Fraction I (u.a.)')
+            #plt.xlim((0,2))
+            plt.show()
+            print('Amplitude: '+str(Amp))
+            print('Imm Frac: '+str(Imm))
+            print('tau: '+str(tau))
+            print('k: '+str(1/tau))
+    
+    df['Amp_non'] = Amps
+    df['Imm_non'] = Imms
+    df['tau_non'] = taus
+    
+    return df
+
+
 #%% Some testing functions
 
 def _my_plot(variable, pp=None):
@@ -1086,6 +1134,7 @@ for intensity in intensities:
     _my_plot(intensity, pp)
 
 pp.close()
+
 
 #%% Plot with different masks
 
