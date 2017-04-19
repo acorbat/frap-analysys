@@ -260,13 +260,14 @@ def get_time(filepath):
     pos_ini = datetime.strptime(pos_ini, time_format)
     # Estimate end of bleaching
     ble_time = timedelta(seconds=float(ble_meta['Axis 4 Parameters Common']['MaxSize'])*ble_timepoint)
-    pos_time = float(pos_meta['Axis 4 Parameters Common']['MaxSize'])*pos_timepoint
+    pos_len = int(pos_meta['Axis 4 Parameters Common']['MaxSize'])
+    pos_time = float(pos_len)*pos_timepoint
     ble_end = ble_ini + ble_time
     # time vector
     start = pos_ini-ble_end
     t = np.arange(start.total_seconds(), start.total_seconds()+pos_time, pos_timepoint)
     
-    return t[:pos_meta['Axis 4 Parameters Common']['MaxSize']]
+    return t[:pos_len]
 
 
 # Functions to crop and mask images
@@ -609,8 +610,8 @@ def calculate_areas(img, rad=None):
         else:
             mask = circle_mask(img, rad)
         if not mask.any():
-            areas = 0
-            diameters = 0
+            areas.append(np.nan)
+            diameters.append(np.nan)
             continue
         # Select only centered granule
         labeled = meas.label(mask)
@@ -624,13 +625,8 @@ def calculate_areas(img, rad=None):
         CPs.extend(img[labeled==0])
         areas.append(area)
         diameters.append(diameter)
-    Ints = np.asarray(Ints)
-    CPs = np.asarray(CPs)
-    areas = np.asarray(areas)
-    diameters = np.asarray(diameters)
     if np.isnan(Ints).all():
         Ints = CPs
-        areas = 0
     return Ints, CPs, areas, diameters
 
 def calculate_series(series, rad=None):
