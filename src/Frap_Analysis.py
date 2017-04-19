@@ -266,7 +266,7 @@ def get_time(filepath):
     start = pos_ini-ble_end
     t = np.arange(start.total_seconds(), start.total_seconds()+pos_time, pos_timepoint)
     
-    return t
+    return t[:pos_meta['Axis 4 Parameters Common']['MaxSize']]
 
 
 # Functions to crop and mask images
@@ -395,7 +395,7 @@ def get_farCP(img, yhxw, add=40):
     return CP_far, dark
 
     
-def crop_and_shift(imgs, yhxw, filter_width=5, D=5):
+def crop_and_shift(imgs, yhxw, filter_width=5):
     """
     Returns the cropped series imgs starting from y,x with size h,w and centering the granule.
     
@@ -434,9 +434,9 @@ def crop_and_shift(imgs, yhxw, filter_width=5, D=5):
             
         # Check cropped image has the same size
         if cropped.shape != (h, w):
-            dif_shape = dif_shape = np.asarray([h, w]) - np.asarray(cropped.shape)
+            dif_shape = np.asarray([h, w]) - np.asarray(cropped.shape)
             new_cropped = np.full((h,w), np.nan)
-            x, y = dif_shape//2
+            y, x = dif_shape//2
             new_cropped[y:y+cropped.shape[0], x:x+cropped.shape[1]] = cropped
             cropped = new_cropped.copy()
         stack[ndx, :, :] = cropped.copy()
@@ -814,7 +814,6 @@ def process_frap(fp):
     df['f_corr'] = list(map(lambdafunc, df['pos_f'], df['mean_pre_I']))
     
     df = add_fitParams(df, Plot=True)
-    df = add_fitParams2(df, Plot=True)
     
     return df
 
