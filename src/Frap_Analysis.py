@@ -944,7 +944,7 @@ def add_fitParams(df, Plot=False):
         
         try:
             popt, pcov = curve_fit(Frap_Func, this_t[np.isfinite(this_f)], this_f[np.isfinite(this_f)], p0=[2000, 15, 5])
-        except TypeError:
+        except (TypeError, RuntimeError):
             popt = [np.nan,np.nan,np.nan]
         
         Amp, Imm, tau = popt[0], popt[1], popt[2]
