@@ -1138,8 +1138,6 @@ for intensity in intensities:
 pp.close()
 
 
-#%% Plot with different masks
-
 def _difMaskPlot(variable, pp=None):
     stats = ['_mean', '_mode', '_median', '_p20', '_p80', '_sum']
     for i in df.index:
@@ -1169,18 +1167,31 @@ for intensity in intensities:
 
 pp.close()
 
-#%%
+#%% Filtering functions
 
-def cell_chooser(this_df, that_df):
+
+def ask_question(q_string):
+    c=0
+    while c<3:
+        answer = input(q_string)
+        if answer=='n':
+            return False
+        if answer=='y':
+            return True
+        else:
+            c+=1
+    raise ValueError('Answer was not in list of possible answers')
+
+def cell_chooser(that_df):
     for i in that_df.index:
         print(that_df['cell'][i])
-        this_f = that_df['f_corr'].values[i]
-        timepoint = that_df['timepoint'].values[i]
+        this_f = that_df['f_corr'][i]
+        timepoint = that_df['timepoint'][i]
         max_temp = len(this_f)*timepoint
         t = np.arange(0, max_temp, timepoint)
-        Amp = that_df['Amp'].values[i]
-        Imm = that_df['Imm'].values[i]
-        tau = that_df['tau'].values[i]
+        Amp = that_df['Amp'][i]
+        Imm = that_df['Imm'][i]
+        tau = that_df['tau'][i]
         
         plt.plot(t, Frap_Func(t, Amp, Imm, tau), 'r')
         plt.scatter(t[:len(this_f)], this_f)
@@ -1194,11 +1205,41 @@ def cell_chooser(this_df, that_df):
         print('tau: '+str(tau))
         print('k: '+str(1/tau))
         
-        answer = input('Is it ok?')
-        if answer=='y':
-            this_df = this_df.append(that_df[i:i+1])
+        if not ask_question('Is it ok?'):
+            that_df = that_df.drop(i)
         
-    return this_df
+    return that_df
+
+
+def filter_df(df_all):
+    for i in df_all.index:
+        if abs(df_all.mean_area[i]-np.pi*((df_all.mean_diameter[i]/2)**2))/df_all.mean_area[i]>0.15:
+            df_all = df_all.drop(i)
+    for i in df_all.index:
+        if df_all.tau[i]>100:
+            df_all = df_all.drop(i)
+    for i in df_all.index:
+        if df_all.Imm[i]>1:
+            df_all = df_all.drop(i)
+    for i in df_all.index:
+        if df_all.Amp[i]>1:
+            df_all = df_all.drop(i)
+    for i in df_all.index:
+        if df_all.mean_pre_I[i]>3500:
+            df_all = df_all.drop(i)
+    return df_all
+
+def complete_filter(old_df):
+    new_df = old_df.copy()
+    
+    # Quick filter obviously incorrect results
+    new_df = filter_df(new_df)
+    
+    # Visual user filter
+    new_df = cell_chooser(new_df)
+    
+    return new_df
+
 
 #%% 
 
@@ -1231,26 +1272,3 @@ def boxplot(data_to_plot, title):
     ## Custom x-axis labels
     plt.xticks([1, 2, 3], ['FL', 'DSAM', 'YFP'])
     plt.title(title)
-
-
-#%% Load and filter FL
-
-df_all = pd.read_pickle('fl.pandas')
-
-def filter_df(df_all):
-    for i in df_all.index:
-        if abs(df_all.mean_area[i]-np.pi*((df_all.mean_diameter[i]/2)**2))/df_all.mean_area[i]>0.15:
-            df_all = df_all.drop(i)
-    for i in df_all.index:
-        if df_all.tau[i]>100:
-            df_all = df_all.drop(i)
-    for i in df_all.index:
-        if df_all.Imm[i]>1:
-            df_all = df_all.drop(i)
-    for i in df_all.index:
-        if df_all.Amp[i]>1:
-            df_all = df_all.drop(i)
-    for i in df_all.index:
-        if df_all.mean_pre_I[i]>3500:
-            df_all = df_all.drop(i)
-    return df_all
