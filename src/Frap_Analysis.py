@@ -842,7 +842,7 @@ def add_fitParams(df, Plot=False):
         this_t = df['t'][i]
         
         try:
-            popt, pcov = curve_fit(Frap_Func, this_t[np.isfinite(this_f)], this_f[np.isfinite(this_f)], p0=[2000, 15, 5])
+            popt, pcov = curve_fit(Frap_Func, this_t[np.isfinite(this_f)], this_f[np.isfinite(this_f)], p0=[2000, 15, 5], sigma=this_f[np.isfinite(this_f)])
         except (TypeError, RuntimeError):
             popt = [np.nan,np.nan,np.nan]
         
@@ -1171,6 +1171,9 @@ pp.close()
 
 
 def ask_question(q_string):
+    """
+    Asks user for y (True) or n (False). If no valid answer is given in three trys a ValueError arises.
+    """
     c=0
     while c<3:
         answer = input(q_string)
@@ -1183,6 +1186,9 @@ def ask_question(q_string):
     raise ValueError('Answer was not in list of possible answers')
 
 def cell_chooser(that_df):
+    """
+    Shows curve and fit for each cell in that_df and asks user if that curve should be dropped.
+    """
     for i in that_df.index:
         print(that_df['cell'][i])
         this_f = that_df['f_corr'][i]
@@ -1212,6 +1218,9 @@ def cell_chooser(that_df):
 
 
 def filter_df(df_all):
+    """
+    Drops from df_all DataFrame every curve whos fit parameters aren't possible. (Imm<1, Amp<1, tau<100, pre_I_mean<3500)
+    """
     for i in df_all.index:
         if abs(df_all.mean_area[i]-np.pi*((df_all.mean_diameter[i]/2)**2))/df_all.mean_area[i]>0.15:
             df_all = df_all.drop(i)
@@ -1230,6 +1239,9 @@ def filter_df(df_all):
     return df_all
 
 def complete_filter(old_df):
+    """
+    Generates new Dataframe after quick and user filtering of old_df.
+    """
     new_df = old_df.copy()
     
     # Quick filter obviously incorrect results
