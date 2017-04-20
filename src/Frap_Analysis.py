@@ -47,7 +47,7 @@ def generate_FileDict(filepath):
     Inputs:
     filepath -- filepath to folder with all the .oif files
     Returns:
-    File_Dict -- Dictionary where keys are [cell, period] and values are the corresponding full path
+    File_Dict -- Dictionary where keys are filename split by '_' and values are the corresponding full path
     """
     filepath = pathlib.Path(filepath)
     File_Dict = {tuple(f.stem.split('_')[:-1]): f for f in filepath.glob('*.oif') if ('_pos' in str(f.name) or '_pre' in str(f.name))}
@@ -80,7 +80,7 @@ def calculate_statvar(rec, ind, vect):
 
 def rec_to_dict(this_dict, rec, suffix):
     """
-    Transfers structured array rec to dictionary this dict where each statistical field is preluded by the suffix.
+    Transfers structured array rec to dictionary this_dict where each statistical field is preluded by the suffix.
     """
     for field in rec.dtype.names:
         this_dict[suffix+'_'+field] = rec[field]
@@ -113,7 +113,7 @@ def get_info(filepath):
 
 def get_metadata(filepath):
     """
-    Gets the whole metadata from the filepath series of .oif file
+    Gets the whole metadata from the filepath series of .oif file.
     
     Input
     filepath -- The filepath to the image whos metadata is desired
@@ -174,7 +174,7 @@ def get_timepoint(filepath):
 
 def get_clip(filepath):
     """
-    Retrieves (x, y) clip start from .files folder
+    Retrieves (y, x) clip start from .files folder
     """
     Axises = ['X', 'Y']
     clip = {}
@@ -208,7 +208,7 @@ def get_clip(filepath):
 
 def get_size(filepath):
     """
-    Retrieves clip size from .files folder
+    Retrieves clip size (h, w) from .files folder
     """
     Axises = ['X', 'Y']
     Sizes = {}
@@ -289,7 +289,7 @@ def imcrop(im, y1, y2, x1, x2):
 
     
 def imcrop_wh(im, y1, h, x1, w):
-    """Crops the image im"""
+    """Crops the image im with a rectangle of height h and width w starting at point y1, x1"""
     assert w>0
     assert h>0
     sh = im.shape
@@ -302,19 +302,18 @@ def imcrop_wh(im, y1, h, x1, w):
 
 def get_farCP(img, yhxw, add=40):
     """
-    Discard close bleaching zone and estimate citoplasm median intensity.
+    Discard close bleaching zone and estimate citoplasm intensity.
     
-    Discards the bleaching area plus 'add' pixels and then generates two Otsu masks
-    to find granules and dark background. Median intensity of citplasm is calculated.
+    Dsicards bleaching area plus 'add' pixels and generates a vector of rest intensity pixels.
+    commented: Discards the bleaching area plus 'add' pixels and then generates two Otsu masks
+    to find granules and dark background.
     Inputs
     img  -- image to work on
     yhxw -- window cropped for analysis
     add  -- (optional) pixels added to bleaching zone
     Return
-    CP_far     -- median intensity of citoplasm
-    CP_far_std -- standard deviation intensity of citoplasm
-    dark       -- median intensity of dark background
-    dark_std   -- standard deviation of dark background
+    CP_far     -- list of intensity of citoplasm pixels
+    dark       -- deprecated(list of intensity of dark pixels)
     """
     # Discard granule in study
     y, h, x, w = yhxw
@@ -352,7 +351,7 @@ def crop_and_shift(imgs, yhxw, filter_width=5):
     """
     Returns the cropped series imgs starting from y,x with size h,w and centering the granule.
     
-    Generates a crop at y,x with size h,w and centers the crop in the present granule using correlation with a centred disk.
+    Generates a crop at y,x with size h,w and centers the crop in the present granule using correlation with a centered disk.
     From then on, the image is centered by correlating to previous image. If difference in image intensity percentile 20 and 80
     is low, no correlation and tracking is done.
     Inputs
@@ -427,9 +426,6 @@ def circle_mask(img, radius):
     """
     Returns mask for image (img) consisting of centered circle of radius.
     
-    It applies otsu threshold over the log intensity image and 
-    then iterates over erosion and dilation of the image to 
-    delete lonely pixels or holes in mask.
     Inputs
     img    -- image to generate mask
     radius -- radius of the centered circle mask
@@ -445,21 +441,19 @@ def circle_mask(img, radius):
 
 def calculate_areas(img, rad=None):
     """
-    Calculates mean and std of foci and citoplasm intensity and area of foci after generating a mask.
+    Returns a list of intensities of foci and citoplasm pixels and area and equivalent diameter of foci after generating a mask or a radius rad circle mask.
     
     Takes an image and applies generate_mask function
-    with 1 to 4 iterations of binary_opening and sums the masks.
-    This gives a weighted mask that gives more weight to the center of the foci.
-    Mean and std intensities of foci and citoplasms are returned
+    with 3 iterations of binary_opening and sums the masks.
+    deprecated: This gives a weighted mask that gives more weight to the center of the foci.
     Inputs
     img -- image to calculate intensities and area of foci
+    rad -- (optional) radius of disk to be used as mask
     Returns
-    mean_I    -- mean weighted intensity of foci
-    std_I     -- standard deviation of weighted intensity foci
-    mean_CP   -- mean weighted intensity of non-foci
-    std_CP    -- standard deviation of weighted intensity non-foci
-    areas     -- weighted mask areas time series
-    diameters -- equivalent circle diameter time series
+    Ints      -- list of intensities of granule pixels
+    CPs       -- list of intensities of near citoplasm pixels
+    areas     -- list of sinlge element weighted mask area
+    diameters -- list of single element equivalent circle diameter
     """
     Ints = []
     CPs = []
@@ -495,16 +489,14 @@ def calculate_series(series, rad=None):
     Calculates intensities and area of foci in image series.
     
     Applies the calculate_areas function to every image in 
-    the series returning the tuple of lists with the mean 
-    and standard deviation of foci and non-foci intensities
-    as well as foci mean area.
+    the series returning the stat_var of foci and non-foci intensities
+    as well as foci area and diameter time series.
     Inputs
     series -- series of images to calculate foci intensities and area
+    rad    -- (optional) radius to be used if centered disk mask is to be used
     Returns
-    means_I    -- list of mean weighted intensity of foci
-    stds_I     -- list of standard deviation of weighted intensity of foci
-    means_CP   -- list of mean weighted intensity of non-foci
-    stds_CP    -- list of standard deviation of weighted intensity of non-foci
+    GR         -- stat_var of intensities of granules
+    CP_near    -- stat_var of intensities of near citoplasm
     areass     -- time series list of weighted area of foci
     diameterss -- time series of equivalent circle diameter
     """
@@ -536,7 +528,7 @@ def calculate_fluorescence(CP, GR):
 def process_frap(fp):
     """
     TODO: correct documentation
-    Generates dataframe with with images and attributes of each cell in the fp filepath.
+    Generates dataframe with images and attributes of each cell in the fp filepath.
     
     Sweeps the fp directory for oif files of cells and concatenates the pre and pos images
     cropping the image with the clip selection for bleaching found in the ble oif file.
@@ -668,6 +660,14 @@ def crop_and_shift_CP(imgs, yhxw, filter_width=5, D=5):
     for ndx in range(len_series):
         img = imgs[ndx, :, :]
         cropped = imcrop_wh(img, y, h, x, w)
+        
+        # Check cropped image has the same size
+        if cropped.shape != (h, w):
+            dif_shape = np.asarray([h, w]) - np.asarray(cropped.shape)
+            new_cropped = np.full((h,w), np.nan)
+            y, x = dif_shape//2
+            new_cropped[y:y+cropped.shape[0], x:x+cropped.shape[1]] = cropped
+            cropped = new_cropped.copy()
             
         stack[ndx, :, :] = cropped.copy()
         this_CP_far, this_dark = get_farCP(img, yhxw)
@@ -732,14 +732,15 @@ def process_frap_CP(fp):
     
     cells = set()
     for key in FileDict.keys():
-        cells.add(key[0])
+        if key[2]=='GR':
+            cells.add(key[0])
     
     # Load all cropped images from folder into dataframe
     df = pd.DataFrame()
     for cell in cells:
         print(cell)
         # load complete image
-        file_pre = FileDict[cell, 'pre']
+        file_pre = FileDict[cell, 'pre', 'GR']
         series = oif.imread(str(file_pre))[0]
         
         # track and crop images pre bleaching
@@ -749,24 +750,18 @@ def process_frap_CP(fp):
         start = get_clip(file_ble)
         yhxw = (start[0], Size[0], start[1], Size[1])
         
-        try:
-            pre_series, pre_CP_far, pre_dark, pre_trajectory = crop_and_shift_CP(series, yhxw)
-        except ValueError:
-            continue
+        pre_series, pre_CP_far, pre_dark, pre_trajectory = crop_and_shift_CP(series, yhxw)
         
         # track and crop images post bleaching
-        file_pos = FileDict[cell, 'pos']
+        file_pos = FileDict[cell, 'pos', 'GR']
         series = oif.imread(str(file_pos))[0]
         yhxw = (pre_trajectory[-1, 0], pre_series[0].shape[0], pre_trajectory[-1, 1], pre_series[0].shape[1])
-        try:
-            pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift_CP(series, yhxw)
-        except:
-            continue
+        pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift_CP(series, yhxw)
         
         # get cell information
-        timepoint = get_timepoint(FileDict[cell, 'pre'])
-        _, cell_n, foci = get_info(FileDict[cell, 'pre'])
-        t = get_time(FileDict[cell, 'pos'])
+        timepoint = get_timepoint(FileDict[cell, 'pre', 'GR'])
+        _, cell_n, foci = get_info(FileDict[cell, 'pre', 'GR'])
+        t = get_time(FileDict[cell, 'pos', 'GR'])
         # prepare dataframe
         this_dict = {'cell':cell, 
                      'cell_number':cell_n, 
@@ -800,15 +795,6 @@ def process_frap_CP(fp):
     pos_charac_df = pd.DataFrame()
     for i in df.index:
         print('pos '+df.cell.values[i])
-        print(df.diameter.values[i])
-        # TODO: THIS IS A MESS
-        try:
-            for val in range(len(df.diameter.values[i])):
-                if not df.diameter.values[i][val]:
-                    df.diameter.values[i] = np.nan
-        except TypeError:
-            pass
-        
         this_GR, this_CP_near, _, _ = calculate_series_CP(df.pos_series.values[i]) # if rad is not passed, previous segmentation is used
         pos_charac = {'cell':df.cell.values[i]}
         rec_to_dict(pos_charac, this_GR, 'pos_GR')
@@ -817,7 +803,6 @@ def process_frap_CP(fp):
 
     df = df.merge(pos_charac_df, on='cell')
     
-    #TODO: need to decide best reporters
     # add fluorescence calculation
     df['pre_f'] = list(map(calculate_fluorescence, df['pre_CP_far_mean'], df['pre_GR_sum']))
     df['pos_f'] = list(map(calculate_fluorescence, df['pos_CP_far_mean'], df['pos_GR_sum']))
