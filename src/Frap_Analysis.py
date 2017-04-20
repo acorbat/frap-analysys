@@ -401,41 +401,6 @@ def crop_and_shift(imgs, yhxw, filter_width=5):
     return stack, CP_far, dark, offsets
 
 
-def crop_and_shift_CP(imgs, yhxw, filter_width=5, D=5):
-    """
-    Returns the cropped series imgs starting from y,x with size h,w and centering the granule.
-    
-    Generates a crop at y,x with size h,w and centers the crop in the present granule using correlation with a centred disk.
-    From then on, the image is centered by correlating to previous image. If difference in image intensity percentile 20 and 80
-    is low, no correlation and tracking is done.
-    Inputs
-    imgs -- series to track and crop
-    yhxw -- tuple with (y position, height of crop, x position, crop width)
-    Returns
-    stack         -- stack of cropped and centered images
-    out_Intensity -- list of mean intensity of every image outside crop
-    offsets       -- list of (y,x) positions of crop (can be used as trajectory of granule)
-    """
-    y, h, x, w = yhxw
-    len_series, sh_y, sh_x = imgs.shape
-    stack = np.full((len_series, h, w), np.nan)
-    CP_far = generate_statVar(len_series)
-    dark = generate_statVar(len_series)
-    offsets = np.empty((len_series, 2), dtype=np.uint)
-    
-    for ndx in range(len_series):
-        img = imgs[ndx, :, :]
-        cropped = imcrop_wh(img, y, h, x, w)
-            
-        stack[ndx, :, :] = cropped.copy()
-        this_CP_far, this_dark = get_farCP(img, yhxw)
-        calculate_statvar(CP_far, ndx, this_CP_far)
-        calculate_statvar(dark, ndx, this_dark)
-        offsets[ndx, :] = (y, x)
-        
-    return stack, CP_far, dark, offsets
-    
-
 def generate_masks(img, iterations):
     """
     Returns mask of image (img) after applying Otsu and binary_opening iterations times
@@ -676,6 +641,41 @@ def process_frap(fp):
 
 
 # CP specific functions
+
+
+def crop_and_shift_CP(imgs, yhxw, filter_width=5, D=5):
+    """
+    Returns the cropped series imgs starting from y,x with size h,w and centering the granule.
+    
+    Generates a crop at y,x with size h,w and centers the crop in the present granule using correlation with a centred disk.
+    From then on, the image is centered by correlating to previous image. If difference in image intensity percentile 20 and 80
+    is low, no correlation and tracking is done.
+    Inputs
+    imgs -- series to track and crop
+    yhxw -- tuple with (y position, height of crop, x position, crop width)
+    Returns
+    stack         -- stack of cropped and centered images
+    out_Intensity -- list of mean intensity of every image outside crop
+    offsets       -- list of (y,x) positions of crop (can be used as trajectory of granule)
+    """
+    y, h, x, w = yhxw
+    len_series, sh_y, sh_x = imgs.shape
+    stack = np.full((len_series, h, w), np.nan)
+    CP_far = generate_statVar(len_series)
+    dark = generate_statVar(len_series)
+    offsets = np.empty((len_series, 2), dtype=np.uint)
+    
+    for ndx in range(len_series):
+        img = imgs[ndx, :, :]
+        cropped = imcrop_wh(img, y, h, x, w)
+            
+        stack[ndx, :, :] = cropped.copy()
+        this_CP_far, this_dark = get_farCP(img, yhxw)
+        calculate_statvar(CP_far, ndx, this_CP_far)
+        calculate_statvar(dark, ndx, this_dark)
+        offsets[ndx, :] = (y, x)
+        
+    return stack, CP_far, dark, offsets
 
 
 def calculate_series_CP(series, rad=None):
