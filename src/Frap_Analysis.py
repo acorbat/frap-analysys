@@ -359,7 +359,8 @@ def crop_and_shift(imgs, yhxw, filter_width=5):
     yhxw -- tuple with (y position, height of crop, x position, crop width)
     Returns
     stack         -- stack of cropped and centered images
-    out_Intensity -- list of mean intensity of every image outside crop
+    CP_far        -- stat_var of intensity of every image outside crop
+    dark          -- deprecated: stat_var of intensity of dark background
     offsets       -- list of (y,x) positions of crop (can be used as trajectory of granule)
     """
     y, h, x, w = yhxw
@@ -527,14 +528,12 @@ def calculate_fluorescence(CP, GR):
 
 def process_frap(fp):
     """
-    TODO: correct documentation
     Generates dataframe with images and attributes of each cell in the fp filepath.
     
-    Sweeps the fp directory for oif files of cells and concatenates the pre and pos images
-    cropping the image with the clip selection for bleaching found in the ble oif file.
-    The DataFrame returned has cell name ('cell'), cell number ('cell_number'), foci number
-    ('foci'), cropped image series ('series'), timepoint ('timepoint'), and total intensity 
-    of non-cropped region of the image ('total_Int')
+    Sweeps the fp directory for oif files of cells and analyzes the pre and pos images
+    cropping the image with the clip selection for bleaching found in the ble oif file and
+    then centering on the granule closest to the center. The returned DataFrame has all
+    the attributes calculated for the granule of interest.
     Inputs
     fp -- filepath of the folder containing oif files
     Returns
@@ -637,17 +636,15 @@ def process_frap(fp):
 
 def crop_and_shift_CP(imgs, yhxw, filter_width=5, D=5):
     """
-    Returns the cropped series imgs starting from y,x with size h,w and centering the granule.
+    Returns the cropped series imgs starting from y,x with size h,w.
     
-    Generates a crop at y,x with size h,w and centers the crop in the present granule using correlation with a centred disk.
-    From then on, the image is centered by correlating to previous image. If difference in image intensity percentile 20 and 80
-    is low, no correlation and tracking is done.
+    Generates a crop at y,x with size h,w and centers the crop in the present granule using correlation with a centered disk.
     Inputs
-    imgs -- series to track and crop
+    imgs -- series to crop
     yhxw -- tuple with (y position, height of crop, x position, crop width)
     Returns
-    stack         -- stack of cropped and centered images
-    out_Intensity -- list of mean intensity of every image outside crop
+    stack         -- stack of cropped images
+    out_Intensity -- stat_var of intensity of every image outside crop
     offsets       -- list of (y,x) positions of crop (can be used as trajectory of granule)
     """
     y, h, x, w = yhxw
@@ -678,23 +675,19 @@ def crop_and_shift_CP(imgs, yhxw, filter_width=5, D=5):
     return stack, CP_far, dark, offsets
 
 
-def calculate_series_CP(series, rad=None):
+def calculate_series_CP(series):
     """
-    Calculates intensities and area of foci in image series.
+    Calculates intensities and area of ROI bleached in image series.
     
-    Applies the calculate_areas function to every image in 
-    the series returning the tuple of lists with the mean 
-    and standard deviation of foci and non-foci intensities
-    as well as foci mean area.
+    Calculates stat_var of every image in the series 
+    as well as area time series.
     Inputs
     series -- series of images to calculate foci intensities and area
     Returns
-    means_I    -- list of mean weighted intensity of foci
-    stds_I     -- list of standard deviation of weighted intensity of foci
-    means_CP   -- list of mean weighted intensity of non-foci
-    stds_CP    -- list of standard deviation of weighted intensity of non-foci
-    areass     -- time series list of weighted area of foci
-    diameterss -- time series of equivalent circle diameter
+    GR         -- stat_var of intensities of ROI
+    CP_near    -- empty stat_var
+    areass     -- time series list of area of ROI
+    diameterss -- 0
     """
     len_series, sh_y, sh_x = series.shape
     GR = generate_statVar(len_series)
