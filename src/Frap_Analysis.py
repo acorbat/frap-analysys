@@ -1301,6 +1301,7 @@ def analyze_all(fp):
             exps = [x for x in plasmid_folder.iterdir() if x.is_dir()]
             for exp_folder in exps:
                 this_exp = exp_folder.name
+                print('analyzing '+this_date+' experiments transfected with '+this_plasmid+' and studying '+this_exp)
                 
                 if this_exp=='CP':
                     this_df = process_frap_CP(exp_folder)
