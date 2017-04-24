@@ -1262,3 +1262,42 @@ def boxplot(data_to_plot, title):
     ## Custom x-axis labels
     plt.xticks([1, 2, 3], ['FL', 'DSAM', 'YFP'])
     plt.title(title)
+
+
+#%% Analyze full folder
+
+def analyze_all(fp):
+    """ Processes every date folder in the specified path for gr and cp analysis"""
+    fp = pathlib.Path(fp)
+    
+    # Generate DataFrames
+    df_cp = pd.DataFrame()
+    df_gr = pd.DataFrame()
+    
+    dates = [x for x in fp.iterdir() if x.is_dir()]
+    for date_folder in dates:
+        this_date = date_folder.name
+        plasmids = [x for x in date_folder.iterdir() if x.is_dir()]
+        for plasmid_folder in plasmids:
+            this_plasmid = plasmid_folder.name
+            exps = [x for x in plasmid_folder.iterdir() if x.is_dir()]
+            for exp_folder in exps:
+                this_exp = exp_folder.name
+                
+                if this_exp=='CP':
+                    this_df = process_frap_CP(exp_folder)
+                    this_df['date'] = this_date
+                    this_df['exp']  = this_plasmid
+                    
+                    df_cp = df_cp.append(this_df, ignore_index=True)
+                elif this_exp=='GR':
+                    this_df = process_frap(exp_folder)
+                    this_df['date'] = this_date
+                    this_df['exp']  = this_plasmid
+                    
+                    df_gr = df_gr.append(this_df, ignore_index=True)
+                else:
+                    continue
+    
+    df_cp.to_pickle(r'C:\Users\Agus\Documents\Laboratorio\uVesiculas\Resultados\cp.pandas')
+    df_gr.to_pickle(r'C:\Users\Agus\Documents\Laboratorio\uVesiculas\Resultados\gr.pandas')
