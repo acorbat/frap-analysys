@@ -275,6 +275,13 @@ def get_time(filepath):
     return t[:pos_len]
 
 
+def get_ble_f(series):
+    Ints = generate_statVar(series.shape[0])
+    for ndx, img in enumerate(series):
+        calculate_statvar(Ints, ndx, img.flatten())
+    return Ints
+
+
 # Functions to crop and mask images
 
     
@@ -561,6 +568,8 @@ def process_frap(fp):
         # track and crop images pre bleaching
         file_ble = file_pre.parent
         file_ble = file_ble.joinpath(str(file_pre.name).replace('_pre', '_ble'))
+        ble_f = get_ble_f(oif.imread(str(file_ble))[0])
+        ble_timepoint = get_timepoint(file_ble)
         Size = get_size(file_ble)
         start = get_clip(file_ble)
         yhxw = (start[0], Size[0], start[1], Size[1])
@@ -589,6 +598,7 @@ def process_frap(fp):
                      'cell_number':cell_n, 
                      'foci':foci,  
                      'timepoint':timepoint,
+                     'ble_timepoint':ble_timepoint,
                      'h_ratio':h_umpxratio,
                      'w_ratio':w_umpxratio,
                      'laser':laser,
@@ -604,6 +614,7 @@ def process_frap(fp):
         rec_to_dict(this_dict, pre_dark, 'pre_dark')
         rec_to_dict(this_dict, pos_CP_far, 'pos_CP_far')
         rec_to_dict(this_dict, pos_dark, 'pos_dark')
+        rec_to_dict(this_dict, ble_f, 'ble_f')
         df = df.append(this_dict, ignore_index=True)
     
     # Characterize granule from pre series
@@ -774,10 +785,10 @@ def process_frap_CP(fp):
         pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift_CP(series, yhxw)
         
         # get cell information
-        timepoint = get_timepoint(FileDict[cell, 'pre'])
-        _, cell_n, foci = get_info(FileDict[cell, 'pre'])
-        t = get_time(FileDict[cell, 'pos'])
-        metadata = get_metadata(FileDict[cell, 'pos'])
+        timepoint = get_timepoint(FileDict[cell, 'pre', 'GR'])
+        _, cell_n, foci = get_info(FileDict[cell, 'pre', 'GR'])
+        t = get_time(FileDict[cell, 'pos', 'GR'])
+        metadata = get_metadata(FileDict[cell, 'pos', 'GR'])
         h_umpxratio = float(metadata['Reference Image Parameter']['HeightConvertValue'])
         w_umpxratio = float(metadata['Reference Image Parameter']['WidthConvertValue'])
         laser = float(metadata['General']['LaserTransmissivity01'])
@@ -899,14 +910,14 @@ def fit_whole_frap_func(df, Plot=False):
     
     for i in df.index:
         print(df.cell[i])
-        this_pre_f = df['pre_f'][i]/df['mean_pre_I_px']
+        this_pre_f = df['pre_f'][i]/df['mean_pre_I_px'][i]
         this_pre_f = this_pre_f[np.isfinite(this_pre_f)]
         this_pre_t = np.arange(0, df.timepoint[i]*len(this_pre_f), df.timepoint[i])[0:len(this_pre_f)]
         this_pre_t = this_pre_t[np.isfinite(this_pre_f)]
         
-        this_ble_f = df['ble_f'][i]
-        this_ble_f = this_ble_f[np.isfinite(this_ble_f)]
-        this_ble_t = df['ble_t'][i]
+        this_ble_f = df['ble_f_mean'][i]
+        this_ble_f = this_ble_f[np.isfinite(this_ble_f)]        
+        this_ble_t = np.arange(0, df.timepoint[i]*len(this_ble_f), df.timepoint[i])[0:len(this_ble_f)]
         this_ble_t = this_ble_t[np.isfinite(this_ble_f)]
         
         this_pos_f = df['f_corr'][i]
