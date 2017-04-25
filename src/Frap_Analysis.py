@@ -568,7 +568,7 @@ def process_frap(fp):
         # track and crop images pre bleaching
         file_ble = file_pre.parent
         file_ble = file_ble.joinpath(str(file_pre.name).replace('_pre', '_ble'))
-        ble_f = get_ble_f(oif.imread(str(file_ble))[0])
+        ble_f = get_ble_f(oif.imread(str(file_ble))[0]) # TODO: won't work because file has two sequences of tiff
         ble_timepoint = get_timepoint(file_ble)
         Size = get_size(file_ble)
         start = get_clip(file_ble)
