@@ -770,14 +770,25 @@ def process_frap_CP(fp):
         pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift_CP(series, yhxw)
         
         # get cell information
-        timepoint = get_timepoint(FileDict[cell, 'pre', 'GR'])
-        _, cell_n, foci = get_info(FileDict[cell, 'pre', 'GR'])
-        t = get_time(FileDict[cell, 'pos', 'GR'])
+        timepoint = get_timepoint(FileDict[cell, 'pre'])
+        _, cell_n, foci = get_info(FileDict[cell, 'pre'])
+        t = get_time(FileDict[cell, 'pos'])
+        metadata = get_metadata(FileDict[cell, 'pos'])
+        h_umpxratio = float(metadata['Reference Image Parameter']['HeightConvertValue'])
+        w_umpxratio = float(metadata['Reference Image Parameter']['WidthConvertValue'])
+        laser = float(metadata['General']['LaserTransmissivity01'])
+        PMT_Volt = float(metadata['Channel 1 Parameters']['AnalogPMTVoltage'])
+        PMT_Gain = float(metadata['Channel 1 Parameters']['AnalogPMTGain'])/1000
         # prepare dataframe
         this_dict = {'cell':cell, 
                      'cell_number':cell_n, 
                      'foci':foci,  
                      'timepoint':timepoint,
+                     'h_ratio':h_umpxratio,
+                     'w_ratio':w_umpxratio,
+                     'laser':laser,
+                     'PMT_Volt':PMT_Volt,
+                     'PMT_Gain':PMT_Gain,
                      'pre_series':pre_series,
                      'pre_trajectory':pre_trajectory, 
                      'pos_series':pos_series,
@@ -817,6 +828,16 @@ def process_frap_CP(fp):
     # add fluorescence calculation
     df['pre_f'] = list(map(calculate_fluorescence, df['pre_CP_far_mean'], df['pre_GR_sum']))
     df['pos_f'] = list(map(calculate_fluorescence, df['pos_CP_far_mean'], df['pos_GR_sum']))
+    
+    # Add pre bleach mean intensity and normalize post bleach fluorescence with it
+    # non corrected version
+    df['mean_area_px'] = list(map(np.nanmean, df['area']))
+    df['mean_diameter_px'] = list(map(np.nanmean, df['diameter']))
+    df['mean_pre_I_px'] = list(map(np.nanmean, df['pre_f']))
+    # Corrected and translated to reality
+    df['mean_area'] = list(map(lambda x, y, z: x*y*z, df['mean_area_px'], df['h_ratio'], df['w_ratio']))
+    df['mean_diameter'] = list(map(lambda x, y: x*y, df['mean_diameter_px'].values, df['h_ratio'].values))
+    df['mean_pre_I'] = list(map(lambda x, y, z, w: w*x*(y/700)*(z/0.1), df['mean_pre_I_px'], df['PMT_Volt'], df['PMT_Gain'], df['laser']))
     
     # Add pre bleach mean intensity and normalize post bleach fluorescence with it   
     df['mean_pre_I'] = list(map(np.nanmean, df['pre_f']))
