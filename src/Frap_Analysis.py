@@ -18,7 +18,7 @@ import scipy.stats as st
 
 from scipy.signal import correlate2d
 from scipy import ndimage as ndi
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, minimize
 from scipy.ndimage.morphology import binary_opening
 from skimage.filters import threshold_otsu
 from skimage.draw import circle
@@ -36,6 +36,11 @@ def Frap_Func(t, A, immobile_frac, tau):
     Returns (1-immobile_frac) - A * np.exp(-t / tau)
     """
     return (1-immobile_frac) - A * np.exp(-t / tau)
+
+
+def Exp_decay(t, A, offset, tau):
+    """Returns A * np.exp(-t/tau) + offset"""
+    return A * np.exp(-t/tau) + offset
 
 
 # Function to generate filepath dictionary
@@ -645,6 +650,7 @@ def process_frap(fp):
     df['f_corr'] = list(map(lambdafunc, df['pos_f'], df['mean_pre_I_px']))
     
     df = add_fitParams(df, Plot=True)
+    df = fit_whole_frap_func(df, Plot=True)
     
     return df
 
@@ -840,7 +846,7 @@ def process_frap_CP(fp):
     # Add pre bleach mean intensity and normalize post bleach fluorescence with it   
     df['mean_pre_I'] = list(map(np.nanmean, df['pre_f']))
     lambdafunc = lambda x, y: x/y
-    df['f_corr'] = list(map(lambdafunc, df['pos_f'], df['mean_pre_I']))
+    df['f_corr'] = list(map(lambdafunc, df['pos_f'], df['mean_pre_I_px']))
     
     df = add_fitParams(df, Plot=True)
     
@@ -885,6 +891,99 @@ def add_fitParams(df, Plot=False):
     df['tau'] = taus
     
     return df
+
+
+def fit_whole_frap_func(df, Plot=False):
+    tau_imgs = []
+    tau_recs = []
+    
+    for i in df.index:
+        print(df.cell[i])
+        this_pre_f = df['pre_f'][i]/df['mean_pre_I_px']
+        this_pre_f = this_pre_f[np.isfinite(this_pre_f)]
+        this_pre_t = np.arange(0, df.timepoint[i]*len(this_pre_f), df.timepoint[i])[0:len(this_pre_f)]
+        this_pre_t = this_pre_t[np.isfinite(this_pre_f)]
+        
+        this_ble_f = df['ble_f'][i]
+        this_ble_f = this_ble_f[np.isfinite(this_ble_f)]
+        this_ble_t = df['ble_t'][i]
+        this_ble_t = this_ble_t[np.isfinite(this_ble_f)]
+        
+        this_pos_f = df['f_corr'][i]
+        this_pos_f = this_pos_f[np.isfinite(this_pos_f)]
+        this_pos_t = df['t'][i]
+        this_pos_t = this_pos_t[np.isfinite(this_pos_f)]
+        
+        def chi_2(tau_img, tau_rec):
+            def pre_func(t, A, offset):
+                """Returns A * np.exp(-t/tau) + offset"""
+                return A * np.exp(-t/tau_img) + offset
+            
+            def ble_func(t, A, offset):
+                """Returns A * np.exp(-t/tau) + offset"""
+                return A * np.exp(-t*(1/(1e4*tau_img)-1/tau_rec)) + offset
+            
+            def pos_func(t, A, immobile_frac):
+                """Returns (1-immobile_frac) - A * np.exp(-t / tau)"""
+                return (1-immobile_frac) - A * np.exp(-t / tau_rec)
+            
+            pre_popt, _ = curve_fit(pre_func, this_pre_t, this_pre_f, sigma=this_pre_f)
+            ble_popt, _ = curve_fit(ble_func, this_ble_t, this_ble_f, sigma=this_ble_f)
+            pos_popt, _ = curve_fit(pos_func, this_pos_t, this_pos_f, sigma=this_pos_f)
+            
+            chi = np.sum(((pre_func(this_pre_t, *pre_popt)-this_pre_f)/this_pre_f)**2)
+            chi += np.sum(((ble_func(this_ble_t, *ble_popt)-this_ble_f)/this_ble_f)**2)
+            chi += np.sum(((pos_func(this_pos_t, *pos_popt)-this_pos_f)/this_pos_f)**2)
+            
+            return chi
+        
+        tau_img, tau_rec = minimize(chi_2, [0.1, 15])
+        
+        if Plot:
+            def pre_func(t, A, offset):
+                """Returns A * np.exp(-t/tau) + offset"""
+                return A * np.exp(-t/tau_img) + offset
+            
+            def ble_func(t, A, offset):
+                """Returns A * np.exp(-t/tau) + offset"""
+                return A * np.exp(-t*(1/(1e4*tau_img)-1/tau_rec)) + offset
+            
+            def pos_func(t, A, immobile_frac):
+                """Returns (1-immobile_frac) - A * np.exp(-t / tau)"""
+                return (1-immobile_frac) - A * np.exp(-t / tau_rec)
+            
+            pre_popt, _ = curve_fit(pre_func, this_pre_t, this_pre_f, sigma=this_pre_f)
+            ble_popt, _ = curve_fit(ble_func, this_ble_t, this_ble_f, sigma=this_ble_f)
+            pos_popt, _ = curve_fit(pos_func, this_pos_t, this_pos_f, sigma=this_pos_f)
+            
+            sim_pre_f = pre_func(this_pre_t, *pre_popt)
+            sim_ble_f = pre_func(this_ble_t, *ble_popt)
+            sim_pos_f = pos_func(this_pos_t, *pos_popt)
+            sim_f = list(sim_pre_f) + list(sim_ble_f) + list(sim_pos_f)
+            
+            this_ble_f = this_ble_f/np.max(this_ble_f)
+            this_ble_t = this_ble_t + np.max(this_pre_t)
+            this_pos_t = this_pos_t + np.max(this_ble_t)
+            
+            this_t = list(this_pre_t) + list(this_ble_t)+ list(this_pos_t)
+            this_f = list(this_pre_f) + list(this_ble_f)+ list(this_pos_f)
+            
+            plt.scatter(this_t, this_f)
+            plt.plot(this_t, sim_f, 'r')
+            plt.title(df.cell[i])
+            print('tau imaging: '+str(tau_img))
+            print('tau recovery: '+str(tau_rec))
+            print('tau bleaching: '+str(tau_img*1e4))
+            
+            
+        tau_imgs.append(tau_img)
+        tau_recs.append(tau_rec)
+        
+    df['tau_img'] = tau_imgs
+    df['tau_rec'] = tau_recs
+    
+    return df
+
 
 
 #%% (G)Oldies
