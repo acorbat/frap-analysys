@@ -948,11 +948,11 @@ def fit_whole_frap_func(df, Plot=False):
             tau_img, tau_rec = taus
             def pre_func(t, A, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
-                return A * np.exp(-t/tau_img) + offset
+                return A * np.exp(-t/(tau_img*1e4)) + offset
             
             def ble_func(t, A, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
-                return A * np.exp(-t*(1/(1e4*tau_img)-1/tau_rec)) + offset
+                return A * np.exp(-t*(1/(tau_img)-1/tau_rec)) + offset
             
             def pos_func(t, A, immobile_frac):
                 """Returns (1-immobile_frac) - A * np.exp(-t / tau)"""
@@ -967,17 +967,20 @@ def fit_whole_frap_func(df, Plot=False):
             chi += np.sum(((pos_func(this_pos_t, *pos_popt)-this_pos_f)/this_pos_f)**2)
             
             return chi
-        
-        tau_img, tau_rec = minimize(chi_2, [0.1, 15])
+        try:
+            mini = minimize(chi_2, [1, 15])
+            tau_img, tau_rec = mini.x
+        except TypeError:
+            tau_img, tau_rec = (np.nan)*2
         
         if Plot:
             def pre_func(t, A, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
-                return A * np.exp(-t/tau_img) + offset
+                return A * np.exp(-t/(tau_img*1e4)) + offset
             
             def ble_func(t, A, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
-                return A * np.exp(-t*(1/(1e4*tau_img)-1/tau_rec)) + offset
+                return A * np.exp(-t*(1/(tau_img)-1/tau_rec)) + offset
             
             def pos_func(t, A, immobile_frac):
                 """Returns (1-immobile_frac) - A * np.exp(-t / tau)"""
@@ -988,7 +991,7 @@ def fit_whole_frap_func(df, Plot=False):
             pos_popt, _ = curve_fit(pos_func, this_pos_t, this_pos_f, sigma=this_pos_f)
             
             sim_pre_f = pre_func(this_pre_t, *pre_popt)
-            sim_ble_f = pre_func(this_ble_t, *ble_popt)
+            sim_ble_f = pre_func(this_ble_t, *ble_popt)/np.max(this_ble_f)
             sim_pos_f = pos_func(this_pos_t, *pos_popt)
             sim_f = list(sim_pre_f) + list(sim_ble_f) + list(sim_pos_f)
             
@@ -1002,19 +1005,19 @@ def fit_whole_frap_func(df, Plot=False):
             plt.scatter(this_t, this_f)
             plt.plot(this_t, sim_f, 'r')
             plt.title(df.cell[i])
-            print('tau imaging: '+str(tau_img))
+            plt.show()
+            print('tau imaging: '+str(tau_img*1e4))
             print('tau recovery: '+str(tau_rec))
-            print('tau bleaching: '+str(tau_img*1e4))
+            print('tau bleaching: '+str(tau_img))
             
             
-        tau_imgs.append(tau_img)
+        tau_imgs.append(tau_img*1e4)
         tau_recs.append(tau_rec)
         
     df['tau_img'] = tau_imgs
     df['tau_rec'] = tau_recs
     
     return df
-
 
 
 #%% (G)Oldies
@@ -1362,13 +1365,14 @@ def cell_chooser(that_df):
     return that_df
 
 
-def filter_df(df_all):
+def filter_df(df_all, is_CP=False):
     """
     Drops from df_all DataFrame every curve whos fit parameters aren't possible. (Imm<1, Amp<1, tau<100, pre_I_mean<3500)
     """
-    for i in df_all.index:
-        if abs(df_all.mean_area[i]-np.pi*((df_all.mean_diameter[i]/2)**2))/df_all.mean_area[i]>0.15:
-            df_all = df_all.drop(i)
+    if is_CP:
+        for i in df_all.index:
+            if abs(df_all.mean_area[i]-np.pi*((df_all.mean_diameter[i]/2)**2))/df_all.mean_area[i]>0.15:
+                df_all = df_all.drop(i)
     for i in df_all.index:
         if df_all.tau[i]>100:
             df_all = df_all.drop(i)
@@ -1383,7 +1387,8 @@ def filter_df(df_all):
             df_all = df_all.drop(i)
     return df_all
 
-def complete_filter(old_df):
+
+def complete_filter(old_df, is_CP=False):
     """
     Generates new Dataframe after quick and user filtering of old_df.
     """
