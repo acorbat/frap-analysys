@@ -944,7 +944,8 @@ def fit_whole_frap_func(df, Plot=False):
         this_pos_t = df['t'][i]
         this_pos_t = this_pos_t[np.isfinite(this_pos_f)]
         
-        def chi_2(tau_img, tau_rec):
+        def chi_2(taus):
+            tau_img, tau_rec = taus
             def pre_func(t, A, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
                 return A * np.exp(-t/tau_img) + offset
