@@ -275,7 +275,26 @@ def get_time(filepath):
     return t[:pos_len]
 
 
+def open_ble(filepath):
+    """Opens ble series because there is the time sequence and reference image"""
+    filepath = pathlib.Path(filepath)
+    this_filepath = filepath.parent
+    this_filepath = this_filepath.joinpath(filepath.name + '.files')
+    w = int(get_metadata(filepath)['Axis 0 Parameters Common']['MaxSize'])
+    h = int(get_metadata(filepath)['Axis 1 Parameters Common']['MaxSize'])
+    len_series = int(get_metadata(filepath)['Axis 4 Parameters Common']['MaxSize'])
+    stack = np.full((len_series, h, w), np.nan)
+    for i in range(len_series):
+        j = i+1
+        this_image_file = this_filepath.joinpath('s_C001T'+'%03d' %j+'.tif')
+        img = tif.imread(str(this_image_file))
+        stack[i] = img
+    
+    return stack
+
+
 def get_ble_f(series):
+    """Calculates stat_var of intentsities of ble images"""
     Ints = generate_statVar(series.shape[0])
     for ndx, img in enumerate(series):
         calculate_statvar(Ints, ndx, img.flatten())
@@ -568,7 +587,7 @@ def process_frap(fp):
         # track and crop images pre bleaching
         file_ble = file_pre.parent
         file_ble = file_ble.joinpath(str(file_pre.name).replace('_pre', '_ble'))
-        ble_f = get_ble_f(oif.imread(str(file_ble))[0]) # TODO: won't work because file has two sequences of tiff
+        ble_f = get_ble_f(open_ble(str(file_ble)))
         ble_timepoint = get_timepoint(file_ble)
         Size = get_size(file_ble)
         start = get_clip(file_ble)
