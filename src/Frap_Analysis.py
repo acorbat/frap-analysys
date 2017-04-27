@@ -1373,6 +1373,11 @@ def filter_df(df_all, is_CP=False):
         for i in df_all.index:
             if abs(df_all.mean_area[i]-np.pi*((df_all.mean_diameter[i]/2)**2))/df_all.mean_area[i]>0.15:
                 df_all = df_all.drop(i)
+        """
+        for i in df_all.index:
+            if df_all.mean_pre_I_px[i]>3500:
+                df_all = df_all.drop(i)
+        """
     for i in df_all.index:
         if df_all.tau[i]>100:
             df_all = df_all.drop(i)
@@ -1381,9 +1386,6 @@ def filter_df(df_all, is_CP=False):
             df_all = df_all.drop(i)
     for i in df_all.index:
         if df_all.Amp[i]>1:
-            df_all = df_all.drop(i)
-    for i in df_all.index:
-        if df_all.mean_pre_I[i]>3500:
             df_all = df_all.drop(i)
     return df_all
 
@@ -1432,9 +1434,36 @@ def boxplot(data_to_plot, title):
         flier.set(marker='o', color='r', alpha=0.5)
     
     ## Custom x-axis labels
-    plt.xticks([1, 2, 3], ['FL', 'DSAM', 'YFP'])
+    plt.xticks([1, 2, 3], ['FL', 'DSAM'])
     plt.title(title)
 
+
+#%% Plot all graphs
+
+that_df = df_gr.query('exp=="DSAM"')
+for i in that_df.index:
+    print(that_df['cell'][i])
+    this_f = that_df['f_corr'][i]
+    timepoint = that_df['timepoint'][i]
+    max_temp = len(this_f)*timepoint
+    t = np.arange(0, max_temp, timepoint)
+    Amp = that_df['Amp'][i]
+    Imm = that_df['Imm'][i]
+    tau = that_df['tau'][i]
+    
+    if that_df['exp'][i]=='FL':
+        this_color = 'b'
+    elif that_df['exp'][i]=='DSAM':
+        this_color='g'
+    elif that_df['exp'][i]=='YFP':
+        this_color='r'
+    plt.scatter(t[:len(this_f)], this_f, color=this_color, alpha=0.5)
+    plt.title(that_df['cell'][i])
+    plt.xlabel('Time (s)')
+    plt.ylabel('Fraction I (u.a.)')
+    plt.ylim((0,1))
+    plt.xlim((0,100))
+    plt.legend(loc=4)
 
 #%% Analyze full folder
 
