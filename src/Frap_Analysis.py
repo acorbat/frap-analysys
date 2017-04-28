@@ -925,6 +925,7 @@ def add_fitParams(df, Plot=False):
 
 def fit_whole_frap_func(df, Plot=False):
     tau_imgs = []
+    tau_bles = []
     tau_recs = []
     
     for i in df.index:
@@ -936,7 +937,7 @@ def fit_whole_frap_func(df, Plot=False):
         
         this_ble_f = df['ble_f_mean'][i]
         this_ble_f = this_ble_f[np.isfinite(this_ble_f)]        
-        this_ble_t = np.arange(0, df.timepoint[i]*len(this_ble_f), df.timepoint[i])[0:len(this_ble_f)]
+        this_ble_t = np.arange(0, df.ble_timepoint[i]*len(this_ble_f), df.ble_timepoint[i])[0:len(this_ble_f)]
         this_ble_t = this_ble_t[np.isfinite(this_ble_f)]
         
         this_pos_f = df['f_corr'][i]
@@ -945,14 +946,14 @@ def fit_whole_frap_func(df, Plot=False):
         this_pos_t = this_pos_t[np.isfinite(this_pos_f)]
         
         def chi_2(taus):
-            tau_img, tau_rec = taus
+            tau_img, tau_rec, tau_ble = taus
             def pre_func(t, A, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
                 return A * np.exp(-t/(tau_img*1e4)) + offset
             
-            def ble_func(t, A, offset):
+            def ble_func(t, A, B, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
-                return A * np.exp(-t*(1/(tau_img)-1/tau_rec)) + offset
+                return A * np.exp(-t*(10/(tau_ble))) + B * np.exp(-t/tau_rec) + offset
             
             def pos_func(t, A, immobile_frac):
                 """Returns (1-immobile_frac) - A * np.exp(-t / tau)"""
@@ -968,19 +969,19 @@ def fit_whole_frap_func(df, Plot=False):
             
             return chi
         try:
-            mini = minimize(chi_2, [1, 15])
-            tau_img, tau_rec = mini.x
-        except TypeError:
-            tau_img, tau_rec = (np.nan)*2
+            mini = minimize(chi_2, [1, 15, 1])
+            tau_img, tau_rec, tau_ble = mini.x
+        except (TypeError, RuntimeError):
+            tau_img, tau_rec, tau_ble = (np.nan, )*3
         
-        if Plot:
+        if Plot and np.isfinite(tau_img):
             def pre_func(t, A, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
                 return A * np.exp(-t/(tau_img*1e4)) + offset
             
-            def ble_func(t, A, offset):
+            def ble_func(t, A, B, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
-                return A * np.exp(-t*(1/(tau_img)-1/tau_rec)) + offset
+                return A * np.exp(-t*(10/(tau_ble))) + B * np.exp(-t/tau_rec) + offset
             
             def pos_func(t, A, immobile_frac):
                 """Returns (1-immobile_frac) - A * np.exp(-t / tau)"""
@@ -991,7 +992,7 @@ def fit_whole_frap_func(df, Plot=False):
             pos_popt, _ = curve_fit(pos_func, this_pos_t, this_pos_f, sigma=this_pos_f)
             
             sim_pre_f = pre_func(this_pre_t, *pre_popt)
-            sim_ble_f = pre_func(this_ble_t, *ble_popt)/np.max(this_ble_f)
+            sim_ble_f = ble_func(this_ble_t, *ble_popt)/np.max(this_ble_f)
             sim_pos_f = pos_func(this_pos_t, *pos_popt)
             sim_f = list(sim_pre_f) + list(sim_ble_f) + list(sim_pos_f)
             
@@ -1008,14 +1009,20 @@ def fit_whole_frap_func(df, Plot=False):
             plt.show()
             print('tau imaging: '+str(tau_img*1e4))
             print('tau recovery: '+str(tau_rec))
-            print('tau bleaching: '+str(tau_img))
+            print('tau bleaching: '+str(tau_ble/10))
+            
+            plt.scatter(this_ble_t, this_ble_f)
+            plt.plot(this_ble_t, sim_ble_f)
+            plt.show()
             
             
         tau_imgs.append(tau_img*1e4)
         tau_recs.append(tau_rec)
+        tau_bles.append(tau_ble/10)
         
-    df['tau_img'] = tau_imgs
+    df['tau_img'] = tau_imgs*1e4
     df['tau_rec'] = tau_recs
+    df['tau_ble'] = tau_bles/10
     
     return df
 
