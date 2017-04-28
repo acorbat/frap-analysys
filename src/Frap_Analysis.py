@@ -673,7 +673,7 @@ def process_frap(fp):
     # Corrected and translated to reality
     df['mean_area'] = list(map(lambda x, y, z: x*y*z, df['mean_area_px'], df['h_ratio'], df['w_ratio']))
     df['mean_diameter'] = list(map(lambda x, y: x*y, df['mean_diameter_px'].values, df['h_ratio'].values))
-    df['mean_pre_I'] = list(map(lambda x, y, z, w: w*x*(y/700)*(z/0.1), df['mean_pre_I_px'], df['PMT_Volt'], df['PMT_Gain'], df['laser']))
+    df['mean_pre_I'] = list(map(lambda x, y, z, w: x*(700/y)*(1/z)*(0.1/w), df['mean_pre_I_px'], df['PMT_Volt'], df['PMT_Gain'], df['laser']))
     
     
     lambdafunc = lambda x, y: x/y
@@ -871,10 +871,10 @@ def process_frap_CP(fp):
     # Corrected and translated to reality
     df['mean_area'] = list(map(lambda x, y, z: x*y*z, df['mean_area_px'], df['h_ratio'], df['w_ratio']))
     df['mean_diameter'] = list(map(lambda x, y: x*y, df['mean_diameter_px'].values, df['h_ratio'].values))
-    df['mean_pre_I'] = list(map(lambda x, y, z, w: w*x*(y/700)*(z/0.1), df['mean_pre_I_px'], df['PMT_Volt'], df['PMT_Gain'], df['laser']))
+    df['mean_pre_I'] = list(map(lambda x, y, z, w: x*(700/y)*(1/z)*(0.1/w), df['mean_pre_I_px'], df['PMT_Volt'], df['PMT_Gain'], df['laser']))
     
     # Add pre bleach mean intensity and normalize post bleach fluorescence with it   
-    df['mean_pre_I'] = list(map(np.nanmean, df['pre_f']))
+    #df['mean_pre_I'] = list(map(np.nanmean, df['pre_f']))
     lambdafunc = lambda x, y: x/y
     df['f_corr'] = list(map(lambdafunc, df['pos_f'], df['mean_pre_I_px']))
     
@@ -973,15 +973,17 @@ def fit_whole_frap_func(df, Plot=False):
             tau_img, tau_rec, tau_ble = mini.x
         except (TypeError, RuntimeError):
             tau_img, tau_rec, tau_ble = (np.nan, )*3
+            tau_img = tau_img*1e4
+            tau_ble = tau_ble/10
         
         if Plot and np.isfinite(tau_img):
             def pre_func(t, A, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
-                return A * np.exp(-t/(tau_img*1e4)) + offset
+                return A * np.exp(-t/(tau_img)) + offset
             
             def ble_func(t, A, B, offset):
                 """Returns A * np.exp(-t/tau) + offset"""
-                return A * np.exp(-t*(10/(tau_ble))) + B * np.exp(-t/tau_rec) + offset
+                return A * np.exp(-t/tau_ble) + B * np.exp(-t/tau_rec) + offset
             
             def pos_func(t, A, immobile_frac):
                 """Returns (1-immobile_frac) - A * np.exp(-t / tau)"""
@@ -1020,9 +1022,9 @@ def fit_whole_frap_func(df, Plot=False):
         tau_recs.append(tau_rec)
         tau_bles.append(tau_ble/10)
         
-    df['tau_img'] = tau_imgs*1e4
+    df['tau_img'] = tau_imgs
     df['tau_rec'] = tau_recs
-    df['tau_ble'] = tau_bles/10
+    df['tau_ble'] = tau_bles
     
     return df
 
@@ -1453,7 +1455,7 @@ for i in that_df.index:
     this_f = that_df['f_corr'][i]
     timepoint = that_df['timepoint'][i]
     max_temp = len(this_f)*timepoint
-    t = np.arange(0, max_temp, timepoint)
+    t = that_df.t[i]
     Amp = that_df['Amp'][i]
     Imm = that_df['Imm'][i]
     tau = that_df['tau'][i]
@@ -1461,9 +1463,9 @@ for i in that_df.index:
     if that_df['exp'][i]=='FL':
         this_color = 'b'
     elif that_df['exp'][i]=='DSAM':
-        this_color='g'
-    elif that_df['exp'][i]=='YFP':
         this_color='r'
+    elif that_df['exp'][i]=='YFP':
+        this_color='g'
     plt.scatter(t[:len(this_f)], this_f, color=this_color, alpha=0.5)
     plt.title(that_df['cell'][i])
     plt.xlabel('Time (s)')
