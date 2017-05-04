@@ -1510,3 +1510,104 @@ def analyze_all(fp):
     
     df_cp.to_pickle(r'C:\Users\Agus\Documents\Laboratorio\uVesiculas\Resultados\cp.pandas')
     df_gr.to_pickle(r'C:\Users\Agus\Documents\Laboratorio\uVesiculas\Resultados\gr.pandas')
+
+#%% Generate pdf with usual graphs
+
+import seaborn as sns
+from matplotlib.backends.backend_pdf import PdfPages
+
+def make_pdf(file, df):
+    pp = PdfPages(file)
+    
+    # Plot tau histogram
+    plt.hist(df.query('(exp=="FL")').tau.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').tau.values, color='b', alpha=0.5, label='DSAM')
+    plt.title('$\\tau$')
+    pp.savefig()
+    plt.show()
+    
+    # Plot Imm histogram
+    plt.hist(df.query('(exp=="FL")').Imm.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').Imm.values, color='b', alpha=0.5, label='DSAM')
+    plt.title('Fracción Inmóvil')
+    pp.savefig()
+    plt.show()
+    
+    # Plot Amp histogram
+    plt.hist(df.query('(exp=="FL")').Amp.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').Amp.values, color='b', alpha=0.5, label='DSAM')
+    plt.title('Amplitud')
+    pp.savefig()
+    plt.show()
+    
+    # Plot diameter histogram
+    plt.hist(df.query('(exp=="FL")').mean_diameter.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').mean_diameter.values, color='b', alpha=0.5, label='DSAM')
+    plt.title('Diámetro')
+    pp.savefig()
+    plt.show()
+    
+    # Plot diameter histogram
+    plt.hist(df.query('(exp=="FL")').mean_pre_I.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').mean_pre_I.values, color='b', alpha=0.5, label='DSAM')
+    plt.title('Intensidad')
+    pp.savefig()
+    plt.show()
+    
+    # Pair Plot
+    sns.pairplot(df, hue='exp', vars=['Amp', 'Imm', 'tau', 'mean_diameter', 'mean_area', 'mean_pre_I'], size=2)
+    pp.savefig()
+    plt.show()
+    
+    pp.close()
+
+
+def make_pdf_CP(file, df):
+    pp = PdfPages(file)
+    
+    # Plot tau histogram
+    plt.hist(df.query('(exp=="FL")').tau.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').tau.values, color='b', alpha=0.5, label='DSAM')
+    plt.hist(df.query('(exp=="YFP")').tau.values, color='r', alpha=0.5, label='YFP')
+    plt.title('$\\tau$')
+    pp.savefig()
+    plt.show()
+    
+    # Plot Imm histogram
+    plt.hist(df.query('(exp=="FL")').Imm.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').Imm.values, color='b', alpha=0.5, label='DSAM')
+    plt.hist(df.query('(exp=="YFP")').Imm.values, color='r', alpha=0.5, label='YFP')
+    plt.title('Fracción Inmóvil')
+    pp.savefig()
+    plt.show()
+    
+    # Plot Amp histogram
+    plt.hist(df.query('(exp=="FL")').Amp.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').Amp.values, color='b', alpha=0.5, label='DSAM')
+    plt.hist(df.query('(exp=="YFP")').Amp.values, color='r', alpha=0.5, label='YFP')
+    plt.title('Amplitud')
+    pp.savefig()
+    plt.show()
+    
+    # Plot diameter histogram
+    plt.hist(df.query('(exp=="FL")').mean_diameter.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').mean_diameter.values, color='b', alpha=0.5, label='DSAM')
+    plt.hist(df.query('(exp=="YFP")').mean_diameter.values, color='r', alpha=0.5, label='YFP')
+    plt.title('Diámetro')
+    pp.savefig()
+    plt.show()
+    
+    # Plot diameter histogram
+    plt.hist(df.query('(exp=="FL")').mean_pre_I.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').mean_pre_I.values, color='b', alpha=0.5, label='DSAM')
+    plt.hist(df.query('(exp=="YFP")').mean_pre_I.values, color='r', alpha=0.5, label='YFP')
+    plt.title('Intensidad')
+    pp.savefig()
+    plt.show()
+    
+    # Pair Plot
+    sns.pairplot(df, hue='exp', vars=['Amp', 'Imm', 'tau', 'mean_area', 'mean_pre_I'], size=2)
+    pp.savefig()
+    plt.show()
+    
+    pp.close()
