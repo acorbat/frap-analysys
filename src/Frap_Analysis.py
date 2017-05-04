@@ -1349,9 +1349,7 @@ def cell_chooser(that_df):
     for i in that_df.index:
         print(that_df['cell'][i])
         this_f = that_df['f_corr'][i]
-        timepoint = that_df['timepoint'][i]
-        max_temp = len(this_f)*timepoint
-        t = np.arange(0, max_temp, timepoint)
+        t = that_df['t'][i]
         Amp = that_df['Amp'][i]
         Imm = that_df['Imm'][i]
         tau = that_df['tau'][i]
