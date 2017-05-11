@@ -1546,6 +1546,7 @@ def make_pdf(file, df):
     plt.hist(df.query('(exp=="FL")').tau.values, color='g', alpha=0.5, label='FL')
     plt.hist(df.query('(exp=="DSAM")').tau.values, color='b', alpha=0.5, label='DSAM')
     plt.title('$\\tau$')
+    plt.legend()
     pp.savefig()
     plt.show()
     
@@ -1553,6 +1554,7 @@ def make_pdf(file, df):
     plt.hist(df.query('(exp=="FL")').Imm.values, color='g', alpha=0.5, label='FL')
     plt.hist(df.query('(exp=="DSAM")').Imm.values, color='b', alpha=0.5, label='DSAM')
     plt.title('Fracción Inmóvil')
+    plt.legend()
     pp.savefig()
     plt.show()
     
@@ -1560,6 +1562,7 @@ def make_pdf(file, df):
     plt.hist(df.query('(exp=="FL")').Amp.values, color='g', alpha=0.5, label='FL')
     plt.hist(df.query('(exp=="DSAM")').Amp.values, color='b', alpha=0.5, label='DSAM')
     plt.title('Amplitud')
+    plt.legend()
     pp.savefig()
     plt.show()
     
@@ -1567,6 +1570,7 @@ def make_pdf(file, df):
     plt.hist(df.query('(exp=="FL")').mean_diameter.values, color='g', alpha=0.5, label='FL')
     plt.hist(df.query('(exp=="DSAM")').mean_diameter.values, color='b', alpha=0.5, label='DSAM')
     plt.title('Diámetro')
+    plt.legend()
     pp.savefig()
     plt.show()
     
@@ -1574,6 +1578,7 @@ def make_pdf(file, df):
     plt.hist(df.query('(exp=="FL")').mean_pre_I.values, color='g', alpha=0.5, label='FL')
     plt.hist(df.query('(exp=="DSAM")').mean_pre_I.values, color='b', alpha=0.5, label='DSAM')
     plt.title('Intensidad')
+    plt.legend()
     pp.savefig()
     plt.show()
     
@@ -1593,6 +1598,7 @@ def make_pdf_CP(file, df):
     plt.hist(df.query('(exp=="DSAM")').tau.values, color='b', alpha=0.5, label='DSAM')
     plt.hist(df.query('(exp=="YFP")').tau.values, color='r', alpha=0.5, label='YFP')
     plt.title('$\\tau$')
+    plt.legend()
     pp.savefig()
     plt.show()
     
@@ -1601,6 +1607,7 @@ def make_pdf_CP(file, df):
     plt.hist(df.query('(exp=="DSAM")').Imm.values, color='b', alpha=0.5, label='DSAM')
     plt.hist(df.query('(exp=="YFP")').Imm.values, color='r', alpha=0.5, label='YFP')
     plt.title('Fracción Inmóvil')
+    plt.legend()
     pp.savefig()
     plt.show()
     
@@ -1609,14 +1616,16 @@ def make_pdf_CP(file, df):
     plt.hist(df.query('(exp=="DSAM")').Amp.values, color='b', alpha=0.5, label='DSAM')
     plt.hist(df.query('(exp=="YFP")').Amp.values, color='r', alpha=0.5, label='YFP')
     plt.title('Amplitud')
+    plt.legend()
     pp.savefig()
     plt.show()
     
     # Plot diameter histogram
-    plt.hist(df.query('(exp=="FL")').mean_diameter.values, color='g', alpha=0.5, label='FL')
-    plt.hist(df.query('(exp=="DSAM")').mean_diameter.values, color='b', alpha=0.5, label='DSAM')
-    plt.hist(df.query('(exp=="YFP")').mean_diameter.values, color='r', alpha=0.5, label='YFP')
-    plt.title('Diámetro')
+    plt.hist(df.query('(exp=="FL")').mean_area.values, color='g', alpha=0.5, label='FL')
+    plt.hist(df.query('(exp=="DSAM")').mean_area.values, color='b', alpha=0.5, label='DSAM')
+    plt.hist(df.query('(exp=="YFP")').mean_area.values, color='r', alpha=0.5, label='YFP')
+    plt.title('Area')
+    plt.legend()
     pp.savefig()
     plt.show()
     
@@ -1625,6 +1634,7 @@ def make_pdf_CP(file, df):
     plt.hist(df.query('(exp=="DSAM")').mean_pre_I.values, color='b', alpha=0.5, label='DSAM')
     plt.hist(df.query('(exp=="YFP")').mean_pre_I.values, color='r', alpha=0.5, label='YFP')
     plt.title('Intensidad')
+    plt.legend()
     pp.savefig()
     plt.show()
     
