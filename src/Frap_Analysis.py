@@ -31,6 +31,13 @@ import oiffile as oif
 
 # Functions to fit with
 
+def Noise_Func(t, A, max_noise, tau):
+    """
+    Returns (max_noise) - A * np.exp(-t / tau)
+    """
+    return (max_noise) - A * np.exp(-t / tau)
+
+
 def Frap_Func(t, A, immobile_frac, tau):
     """
     Returns (1-immobile_frac) - A * np.exp(-t / tau)
@@ -44,6 +51,7 @@ def Exp_decay(t, A, offset, tau):
 
 
 # Function to generate filepath dictionary
+
 
 def generate_FileDict(filepath):
     """
@@ -299,6 +307,18 @@ def get_ble_f(series):
     for ndx, img in enumerate(series):
         calculate_statvar(Ints, ndx, img.flatten())
     return Ints
+
+
+# Background correction for images
+
+
+def bkg_correct(series, t):
+    """ Hard coded background correction function that depends on Nois_Func"""
+    noise = Noise_Func(t, 3.8, 22, 33)
+    for i in series.shape[0]:
+        series[i, :, :] = series[i, :, :] - noise[i]
+    
+    return series
 
 
 # Functions to crop and mask images
@@ -583,6 +603,8 @@ def process_frap(fp):
         # load complete image
         file_pre = FileDict[cell, 'pre']
         series = oif.imread(str(file_pre))[0]
+        t = get_time(FileDict[cell, 'pos'])
+        series = bkg_correct(series, t)
         
         # track and crop images pre bleaching
         file_ble = file_pre.parent
@@ -605,7 +627,6 @@ def process_frap(fp):
         # get cell information
         timepoint = get_timepoint(FileDict[cell, 'pre'])
         _, cell_n, foci = get_info(FileDict[cell, 'pre'])
-        t = get_time(FileDict[cell, 'pos'])
         metadata = get_metadata(FileDict[cell, 'pos'])
         h_umpxratio = float(metadata['Reference Image Parameter']['HeightConvertValue'])
         w_umpxratio = float(metadata['Reference Image Parameter']['WidthConvertValue'])
@@ -787,6 +808,8 @@ def process_frap_CP(fp):
         # load complete image
         file_pre = FileDict[cell, 'pre', 'GR']
         series = oif.imread(str(file_pre))[0]
+        t = get_time(FileDict[cell, 'pos'])
+        series = bkg_correct(series, t)
         
         # track and crop images pre bleaching
         file_ble = file_pre.parent
