@@ -603,8 +603,9 @@ def process_frap(fp):
         # load complete image
         file_pre = FileDict[cell, 'pre']
         series = oif.imread(str(file_pre))[0]
-        t = get_time(FileDict[cell, 'pos'])
-        series = bkg_correct(series, t)
+        timepoint = get_timepoint(FileDict[cell, 'pre'])
+        t_pre = np.arange(0, len(series)*timepoint, timepoint)[:len(series)]
+        series = bkg_correct(series, t_pre)
         
         # track and crop images pre bleaching
         file_ble = file_pre.parent
@@ -620,13 +621,13 @@ def process_frap(fp):
         # track and crop images post bleaching
         file_pos = FileDict[cell, 'pos']
         series = oif.imread(str(file_pos))[0]
+        t = get_time(FileDict[cell, 'pos'])
         series = bkg_correct(series, t)
         yhxw = (pre_trajectory[-1, 0], pre_series[0].shape[0], pre_trajectory[-1, 1], pre_series[0].shape[1])
         
         pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift(series, yhxw)
         
         # get cell information
-        timepoint = get_timepoint(FileDict[cell, 'pre'])
         _, cell_n, foci = get_info(FileDict[cell, 'pre'])
         metadata = get_metadata(FileDict[cell, 'pos'])
         h_umpxratio = float(metadata['Reference Image Parameter']['HeightConvertValue'])
@@ -809,8 +810,9 @@ def process_frap_CP(fp):
         # load complete image
         file_pre = FileDict[cell, 'pre', 'GR']
         series = oif.imread(str(file_pre))[0]
-        t = get_time(FileDict[cell, 'pos', 'GR'])
-        series = bkg_correct(series, t)
+        timepoint = get_timepoint(FileDict[cell, 'pre', 'GR'])
+        t_pre = np.arange(0, len(series)*timepoint, timepoint)[:len(series)]
+        series = bkg_correct(series, t_pre)
         
         # track and crop images pre bleaching
         file_ble = file_pre.parent
@@ -824,14 +826,13 @@ def process_frap_CP(fp):
         # track and crop images post bleaching
         file_pos = FileDict[cell, 'pos', 'GR']
         series = oif.imread(str(file_pos))[0]
+        t = get_time(FileDict[cell, 'pos', 'GR'])
         series = bkg_correct(series, t)
         yhxw = (pre_trajectory[-1, 0], pre_series[0].shape[0], pre_trajectory[-1, 1], pre_series[0].shape[1])
         pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift_CP(series, yhxw)
         
         # get cell information
-        timepoint = get_timepoint(FileDict[cell, 'pre', 'GR'])
         _, cell_n, foci = get_info(FileDict[cell, 'pre', 'GR'])
-        t = get_time(FileDict[cell, 'pos', 'GR'])
         metadata = get_metadata(FileDict[cell, 'pos', 'GR'])
         h_umpxratio = float(metadata['Reference Image Parameter']['HeightConvertValue'])
         w_umpxratio = float(metadata['Reference Image Parameter']['WidthConvertValue'])
