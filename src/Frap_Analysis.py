@@ -808,7 +808,7 @@ def process_frap_CP(fp):
         # load complete image
         file_pre = FileDict[cell, 'pre', 'GR']
         series = oif.imread(str(file_pre))[0]
-        t = get_time(FileDict[cell, 'pos'])
+        t = get_time(FileDict[cell, 'pos', 'GR'])
         series = bkg_correct(series, t)
         
         # track and crop images pre bleaching
