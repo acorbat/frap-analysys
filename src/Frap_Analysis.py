@@ -315,7 +315,7 @@ def get_ble_f(series):
 def bkg_correct(series, t):
     """ Hard coded background correction function that depends on Nois_Func"""
     noise = Noise_Func(t, 3.8, 22, 33)
-    for i in series.shape[0]:
+    for i in range(series.shape[0]):
         series[i, :, :] = series[i, :, :] - noise[i]
     
     return series
