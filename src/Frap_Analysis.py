@@ -620,6 +620,7 @@ def process_frap(fp):
         # track and crop images post bleaching
         file_pos = FileDict[cell, 'pos']
         series = oif.imread(str(file_pos))[0]
+        series = bkg_correct(series, t)
         yhxw = (pre_trajectory[-1, 0], pre_series[0].shape[0], pre_trajectory[-1, 1], pre_series[0].shape[1])
         
         pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift(series, yhxw)
@@ -823,6 +824,7 @@ def process_frap_CP(fp):
         # track and crop images post bleaching
         file_pos = FileDict[cell, 'pos', 'GR']
         series = oif.imread(str(file_pos))[0]
+        series = bkg_correct(series, t)
         yhxw = (pre_trajectory[-1, 0], pre_series[0].shape[0], pre_trajectory[-1, 1], pre_series[0].shape[1])
         pos_series, pos_CP_far, pos_dark, pos_trajectory = crop_and_shift_CP(series, yhxw)
         
