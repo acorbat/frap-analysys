@@ -78,9 +78,11 @@ def generate_statVar(shape):
 
 def calculate_statvar(rec, ind, vect):
     """
-    Adds statistics of vect to the structured array rec at the index ind.
+    Adds statistics of vect to the structured array rec at the index ind. Ignores Nans.
     """
     if len(vect)>0:
+        vect = np.asarray(vect)
+        vect = vect[np.isfinite(vect)]
         rec['sum'][ind] = np.nansum(vect)
         rec['mean'][ind] = np.nanmean(vect)
         rec['mode'][ind] = st.mode(vect).mode[0]
@@ -315,10 +317,11 @@ def get_ble_f(series):
 def bkg_correct(series, t):
     """ Hard coded background correction function that depends on Nois_Func"""
     noise = Noise_Func(t, 3.8, 22, 33)
-    for i in range(series.shape[0]):
-        series[i, :, :] = series[i, :, :] - noise[i]
+    new_series = np.asarray(series, dtype=float)
+    for i, img in enumerate(new_series):
+        new_series[i, :, :] = np.clip(img - noise[i], 0, 4096)
     
-    return series
+    return new_series
 
 
 # Functions to crop and mask images
@@ -1542,6 +1545,30 @@ def analyze_all(fp):
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 
+
+def plot_all_curves(df, pp=None):
+    that_df = df.copy()
+    for i in that_df.index:
+        print(that_df['cell'][i])
+        this_f = that_df['f_corr'][i]
+        t = that_df.t[i]
+        
+        if that_df['exp'][i]=='FL':
+            this_color = 'b'
+        elif that_df['exp'][i]=='DSAM':
+            this_color='r'
+        elif that_df['exp'][i]=='YFP':
+            this_color='g'
+        plt.scatter(t, this_f, color=this_color, alpha=0.5)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Fraction I (u.a.)')
+    plt.ylim((0,1))
+    plt.xlim((0,100))
+    if pp is not None:
+        pp.savefig()
+    plt.show()
+
+    
 def make_pdf(file, df):
     pp = PdfPages(file)
     
@@ -1589,6 +1616,10 @@ def make_pdf(file, df):
     sns.pairplot(df, hue='exp', vars=['Amp', 'Imm', 'tau', 'mean_diameter', 'mean_area', 'mean_pre_I'], size=2)
     pp.savefig()
     plt.show()
+    
+    plot_all_curves(df, pp)
+    plot_all_curves(df.query('exp=="FL"'), pp)
+    plot_all_curves(df.query('exp=="DSAM"'), pp)
     
     pp.close()
 
@@ -1645,5 +1676,10 @@ def make_pdf_CP(file, df):
     sns.pairplot(df, hue='exp', vars=['Amp', 'Imm', 'tau', 'mean_area', 'mean_pre_I'], size=2)
     pp.savefig()
     plt.show()
+        
+    plot_all_curves(df, pp)
+    plot_all_curves(df.query('exp=="FL"'), pp)
+    plot_all_curves(df.query('exp=="DSAM"'), pp)
+    plot_all_curves(df.query('exp=="YFP"'), pp)
     
     pp.close()
