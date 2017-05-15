@@ -1474,33 +1474,6 @@ def boxplot(data_to_plot, title):
     plt.title(title)
 
 
-#%% Plot all graphs
-
-that_df = df_gr.query('exp=="DSAM"')
-for i in that_df.index:
-    print(that_df['cell'][i])
-    this_f = that_df['f_corr'][i]
-    timepoint = that_df['timepoint'][i]
-    max_temp = len(this_f)*timepoint
-    t = that_df.t[i]
-    Amp = that_df['Amp'][i]
-    Imm = that_df['Imm'][i]
-    tau = that_df['tau'][i]
-    
-    if that_df['exp'][i]=='FL':
-        this_color = 'b'
-    elif that_df['exp'][i]=='DSAM':
-        this_color='r'
-    elif that_df['exp'][i]=='YFP':
-        this_color='g'
-    plt.scatter(t[:len(this_f)], this_f, color=this_color, alpha=0.5)
-    plt.title(that_df['cell'][i])
-    plt.xlabel('Time (s)')
-    plt.ylabel('Fraction I (u.a.)')
-    plt.ylim((0,1))
-    plt.xlim((0,100))
-    plt.legend(loc=4)
-
 #%% Analyze full folder
 
 def analyze_all(fp):
