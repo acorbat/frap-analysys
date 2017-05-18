@@ -50,7 +50,7 @@ for date_folder in date_folders:
             all_experiments.extend(these_files)
 
 
-for file in all_experiments[0:1]:
+for file in all_experiments:
     #-------------------------
     # Instantiate model object
     #-------------------------
