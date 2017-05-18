@@ -147,7 +147,7 @@ for file in all_experiments[0:1]:
     
     ExportStatsToIJAction().execute(trackmate)
     
-    good_track = IJ.getString("Was this a good tracking?")
+    good_track = IJ.getString("Was this a good tracking?", 'n')
     
     
     # Save spot statistics
