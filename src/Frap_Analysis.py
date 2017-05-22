@@ -1058,6 +1058,30 @@ def fit_whole_frap_func(df, Plot=False):
     return df
 
 
+def extract_tracks(fp):
+    """Extracts attributes of TrackStat.csv files produced by fiji and adds them to a DataFrame
+    """
+    
+    fp = pathlib.Path(fp)
+    attrs = ['duration', 'displacement', 'mean_speed', 'max_speed', 'std_speed']
+    
+    df = pd.DataFrame()
+    
+    for file in fp.iterdir():
+        if str(file).endswith('TrackStat.csv'):
+            this_dict = {}
+            this_dict['cell'] = file.stem.split('_')[0]
+            this_dict['file'] = str(file)
+            this_csv = pd.read_csv(str(file))
+            
+            for attr in attrs:
+                this_dict[attr] = this_csv['TRACK_' + attr.upper()].values
+        
+            df = df.append(this_dict, ignore_index=True)
+    
+    return df
+
+
 #%% (G)Oldies
 
 def generate_df(fp):
@@ -1483,6 +1507,7 @@ def analyze_all(fp):
     # Generate DataFrames
     df_cp = pd.DataFrame()
     df_gr = pd.DataFrame()
+    df_track = pd.DataFrame()
     
     dates = [x for x in fp.iterdir() if x.is_dir()]
     for date_folder in dates:
@@ -1507,11 +1532,18 @@ def analyze_all(fp):
                     this_df['exp']  = this_plasmid
                     
                     df_gr = df_gr.append(this_df, ignore_index=True)
+                elif this_exp=='Videos':
+                    this_df = extract_tracks(exp_folder)
+                    this_df['date'] = this_date
+                    this_df['exp']  = this_plasmid
+                    
+                    df_track = df_track.append(this_df, ignore_index=True)
                 else:
                     continue
     
     df_cp.to_pickle(r'C:\Users\Agus\Documents\Laboratorio\uVesiculas\Resultados\cp.pandas')
     df_gr.to_pickle(r'C:\Users\Agus\Documents\Laboratorio\uVesiculas\Resultados\gr.pandas')
+
 
 #%% Generate pdf with usual graphs
 
