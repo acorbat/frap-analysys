@@ -1684,3 +1684,93 @@ def make_pdf_CP(file, df):
     plot_all_curves(df.query('exp=="YFP"'), pp)
     
     pp.close()
+
+
+def make_pdf_track(file, df):
+    pp = PdfPages(file)
+    
+    # Plot histogram of track displacement
+    plt.hist(df.query('exp=="FL"').TRACK_DISPLACEMENT.values, bins=20, label='FL', alpha=0.75)
+    plt.hist(df.query('exp=="DSAM"').TRACK_DISPLACEMENT.values, bins=20, label='DSAM', alpha=0.75)
+    plt.title('Displacement')
+    plt.legend()
+    pp.savefig()
+    plt.show()
+    
+    # Plot cumulative histogram of track displacement
+    plt.hist(df.query('exp=="FL"').TRACK_DISPLACEMENT.values, bins=len(df.query('exp=="FL"').TRACK_DISPLACEMENT.values), label='FL', alpha=0.75, cumulative=True, normed=True, histtype='step')
+    plt.hist(df.query('exp=="DSAM"').TRACK_DISPLACEMENT.values, bins=len(df.query('exp=="DSAM"').TRACK_DISPLACEMENT.values), label='DSAM', alpha=0.75, cumulative=True, normed=True, histtype='step')
+    plt.title('Displacement')
+    plt.legend()
+    pp.savefig()
+    plt.show()
+    
+    # Plot histogram of track mean speed
+    plt.hist(df.query('exp=="FL"').TRACK_MEAN_SPEED.values, bins=20, label='FL', alpha=0.75)
+    plt.hist(df.query('exp=="DSAM"').TRACK_MEAN_SPEED.values, bins=20, label='DSAM', alpha=0.75)
+    plt.title('Mean Speed')
+    plt.legend()
+    pp.savefig()
+    plt.show()
+    
+    # Plot cumulative histogram of track mean speed
+    plt.hist(df.query('exp=="FL"').TRACK_MEAN_SPEED.values, bins=len(df.query('exp=="FL"').TRACK_MEAN_SPEED.values), label='FL', alpha=0.75, cumulative=True, normed=True, histtype='step')
+    plt.hist(df.query('exp=="DSAM"').TRACK_MEAN_SPEED.values, bins=len(df.query('exp=="DSAM"').TRACK_MEAN_SPEED.values), label='DSAM', alpha=0.75, cumulative=True, normed=True, histtype='step')
+    plt.title('Mean Speed')
+    plt.legend()
+    pp.savefig()
+    plt.show()
+    
+    # Plot histogram of track max speed
+    plt.hist(df.query('exp=="FL"').TRACK_MAX_SPEED.values, bins=20, label='FL', alpha=0.75)
+    plt.hist(df.query('exp=="DSAM"').TRACK_MAX_SPEED.values, bins=20, label='DSAM', alpha=0.75)
+    plt.title('Max Speed')
+    plt.legend()
+    pp.savefig()
+    plt.show()
+    
+    # Plot cumulative histogram of track max speed
+    plt.hist(df.query('exp=="FL"').TRACK_MAX_SPEED.values, bins=len(df.query('exp=="FL"').TRACK_MAX_SPEED.values), label='FL', alpha=0.75, cumulative=True, normed=True, histtype='step')
+    plt.hist(df.query('exp=="DSAM"').TRACK_MAX_SPEED.values, bins=len(df.query('exp=="DSAM"').TRACK_MAX_SPEED.values), label='DSAM', alpha=0.75, cumulative=True, normed=True, histtype='step')
+    plt.title('Max Speed')
+    plt.legend()
+    pp.savefig()
+    plt.show()
+    
+    # Plot histogram of track median speed
+    plt.hist(df.query('exp=="FL"').TRACK_MEDIAN_SPEED.values, bins=20, label='FL', alpha=0.75)
+    plt.hist(df.query('exp=="DSAM"').TRACK_MEDIAN_SPEED.values, bins=20, label='DSAM', alpha=0.75)
+    plt.title('Median Speed')
+    plt.legend()
+    pp.savefig()
+    plt.show()
+    
+    # Plot cumulative histogram of track median speed
+    plt.hist(df.query('exp=="FL"').TRACK_MEDIAN_SPEED.values, bins=len(df.query('exp=="FL"').TRACK_MEDIAN_SPEED.values), label='FL', alpha=0.75, cumulative=True, normed=True, histtype='step')
+    plt.hist(df.query('exp=="DSAM"').TRACK_MEDIAN_SPEED.values, bins=len(df.query('exp=="DSAM"').TRACK_MEDIAN_SPEED.values), label='DSAM', alpha=0.75, cumulative=True, normed=True, histtype='step')
+    plt.title('Median Speed')
+    plt.legend()
+    pp.savefig()
+    plt.show()
+    
+    # Plot histogram of track standard deviation speed
+    plt.hist(df.query('exp=="FL"').TRACK_STD_SPEED.values, bins=20, label='FL', alpha=0.75)
+    plt.hist(df.query('exp=="DSAM"').TRACK_STD_SPEED.values, bins=20, label='DSAM', alpha=0.75)
+    plt.title('Standard Deviation')
+    plt.legend()
+    pp.savefig()
+    plt.show()
+    
+    # Plot cumulative histogram of track standard deviation speed
+    plt.hist(df.query('exp=="FL"').TRACK_STD_SPEED.values, bins=len(df.query('exp=="FL"').TRACK_STD_SPEED.values), label='FL', alpha=0.75, cumulative=True, normed=True, histtype='step')
+    plt.hist(df.query('exp=="DSAM"').TRACK_STD_SPEED.values, bins=len(df.query('exp=="DSAM"').TRACK_STD_SPEED.values), label='DSAM', alpha=0.75, cumulative=True, normed=True, histtype='step')
+    plt.title('Standard Deviation')
+    plt.legend()
+    pp.savefig()
+    plt.show()
+    # Cross correlation pair plot
+    sns.pairplot(df, hue='exp', vars=['TRACK_DURATION', 'TRACK_DISPLACEMENT', 'TRACK_MEAN_SPEED', 'TRACK_MAX_SPEED', 'TRACK_MEDIAN_SPEED', 'TRACK_STD_SPEED'], size=4)
+    pp.savefig()
+    plt.show()
+    
+    pp.close()
