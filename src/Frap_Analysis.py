@@ -1063,21 +1063,16 @@ def extract_tracks(fp):
     """
     
     fp = pathlib.Path(fp)
-    attrs = ['duration', 'displacement', 'mean_speed', 'max_speed', 'std_speed']
     
     df = pd.DataFrame()
     
     for file in fp.iterdir():
         if str(file).endswith('TrackStat.csv'):
-            this_dict = {}
-            this_dict['cell'] = file.stem.split('_')[0]
-            this_dict['file'] = str(file)
             this_csv = pd.read_csv(str(file))
+            this_csv['cell'] = file.stem.split('_')[0]
+            this_csv['file'] = str(file)
             
-            for attr in attrs:
-                this_dict[attr] = this_csv['TRACK_' + attr.upper()].values
-        
-            df = df.append(this_dict, ignore_index=True)
+            df = df.append(this_csv, ignore_index=True)
     
     return df
 
@@ -1543,6 +1538,7 @@ def analyze_all(fp):
     
     df_cp.to_pickle(r'C:\Users\Agus\Documents\Laboratorio\uVesiculas\Resultados\cp.pandas')
     df_gr.to_pickle(r'C:\Users\Agus\Documents\Laboratorio\uVesiculas\Resultados\gr.pandas')
+    df_track.to_pickle(r'C:\Users\Agus\Documents\Laboratorio\uVesiculas\Resultados\tracks.pandas')
 
 
 #%% Generate pdf with usual graphs
