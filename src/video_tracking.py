@@ -29,6 +29,7 @@ import fiji.plugin.trackmate.features.SpotFeatureCalculator as SpotFeatureCalcul
 import fiji.plugin.trackmate.features.spot.SpotContrastAndSNRAnalyzer as SpotContrastAndSNRAnalyzer
 import fiji.plugin.trackmate.features.spot.SpotIntensityAnalyzerFactory as SpotIntensityAnalyzerFactory
 import fiji.plugin.trackmate.features.spot.SpotRadiusEstimatorFactory as SpotRadiusEstimatorFactory
+import fiji.plugin.trackmate.features.edges.EdgeVelocityAnalyzer as EdgeVelocityAnalyzer
 import fiji.plugin.trackmate.features.track.TrackDurationAnalyzer as TrackDurationAnalyzer
 import fiji.plugin.trackmate.features.track.TrackLocationAnalyzer as TrackLocationAnalyzer
 import fiji.plugin.trackmate.features.track.TrackSpeedStatisticsAnalyzer as TrackSpeedStatisticsAnalyzer
@@ -94,6 +95,9 @@ for file in all_experiments:
     settings.addSpotAnalyzerFactory(SpotIntensityAnalyzerFactory())
     settings.addSpotAnalyzerFactory(SpotContrastAndSNRAnalyzerFactory())
     settings.addSpotAnalyzerFactory(SpotRadiusEstimatorFactory())
+    
+    # Add velocity and displacement analyzer for each edge
+    settings.addEdgeAnalyzer(EdgeVelocityAnalyzer())
        
     # Add an analyzer for some track features, such as the track mean speed.
     settings.addTrackAnalyzer(TrackDurationAnalyzer())
