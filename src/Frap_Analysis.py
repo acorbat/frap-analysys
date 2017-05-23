@@ -1065,7 +1065,7 @@ def extract_tracks(fp):
     fp = pathlib.Path(fp)
     
     df = pd.DataFrame()
-    
+    # TODO: add link extraction and maybe some trajectory parser
     for file in fp.iterdir():
         if str(file).endswith('TrackStat.csv'):
             this_csv = pd.read_csv(str(file))
@@ -1690,8 +1690,8 @@ def make_pdf_track(file, df):
     pp = PdfPages(file)
     
     # Plot histogram of track displacement
-    plt.hist(df.query('exp=="FL"').TRACK_DISPLACEMENT.values, bins=20, label='FL', alpha=0.75)
-    plt.hist(df.query('exp=="DSAM"').TRACK_DISPLACEMENT.values, bins=20, label='DSAM', alpha=0.75)
+    plt.hist(df.query('exp=="FL"').TRACK_DISPLACEMENT.values, bins=20, label='FL', alpha=0.75, normed=True)
+    plt.hist(df.query('exp=="DSAM"').TRACK_DISPLACEMENT.values, bins=20, label='DSAM', alpha=0.75, normed=True)
     plt.title('Displacement')
     plt.legend()
     pp.savefig()
@@ -1706,8 +1706,8 @@ def make_pdf_track(file, df):
     plt.show()
     
     # Plot histogram of track mean speed
-    plt.hist(df.query('exp=="FL"').TRACK_MEAN_SPEED.values, bins=20, label='FL', alpha=0.75)
-    plt.hist(df.query('exp=="DSAM"').TRACK_MEAN_SPEED.values, bins=20, label='DSAM', alpha=0.75)
+    plt.hist(df.query('exp=="FL"').TRACK_MEAN_SPEED.values, bins=20, label='FL', alpha=0.75, normed=True)
+    plt.hist(df.query('exp=="DSAM"').TRACK_MEAN_SPEED.values, bins=20, label='DSAM', alpha=0.75, normed=True)
     plt.title('Mean Speed')
     plt.legend()
     pp.savefig()
@@ -1722,8 +1722,8 @@ def make_pdf_track(file, df):
     plt.show()
     
     # Plot histogram of track max speed
-    plt.hist(df.query('exp=="FL"').TRACK_MAX_SPEED.values, bins=20, label='FL', alpha=0.75)
-    plt.hist(df.query('exp=="DSAM"').TRACK_MAX_SPEED.values, bins=20, label='DSAM', alpha=0.75)
+    plt.hist(df.query('exp=="FL"').TRACK_MAX_SPEED.values, bins=20, label='FL', alpha=0.75, normed=True)
+    plt.hist(df.query('exp=="DSAM"').TRACK_MAX_SPEED.values, bins=20, label='DSAM', alpha=0.75, normed=True)
     plt.title('Max Speed')
     plt.legend()
     pp.savefig()
@@ -1738,8 +1738,8 @@ def make_pdf_track(file, df):
     plt.show()
     
     # Plot histogram of track median speed
-    plt.hist(df.query('exp=="FL"').TRACK_MEDIAN_SPEED.values, bins=20, label='FL', alpha=0.75)
-    plt.hist(df.query('exp=="DSAM"').TRACK_MEDIAN_SPEED.values, bins=20, label='DSAM', alpha=0.75)
+    plt.hist(df.query('exp=="FL"').TRACK_MEDIAN_SPEED.values, bins=20, label='FL', alpha=0.75, normed=True)
+    plt.hist(df.query('exp=="DSAM"').TRACK_MEDIAN_SPEED.values, bins=20, label='DSAM', alpha=0.75, normed=True)
     plt.title('Median Speed')
     plt.legend()
     pp.savefig()
@@ -1754,8 +1754,8 @@ def make_pdf_track(file, df):
     plt.show()
     
     # Plot histogram of track standard deviation speed
-    plt.hist(df.query('exp=="FL"').TRACK_STD_SPEED.values, bins=20, label='FL', alpha=0.75)
-    plt.hist(df.query('exp=="DSAM"').TRACK_STD_SPEED.values, bins=20, label='DSAM', alpha=0.75)
+    plt.hist(df.query('exp=="FL"').TRACK_STD_SPEED.values, bins=20, label='FL', alpha=0.75, normed=True)
+    plt.hist(df.query('exp=="DSAM"').TRACK_STD_SPEED.values, bins=20, label='DSAM', alpha=0.75, normed=True)
     plt.title('Standard Deviation')
     plt.legend()
     pp.savefig()
