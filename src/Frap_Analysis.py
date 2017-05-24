@@ -1058,6 +1058,23 @@ def fit_whole_frap_func(df, Plot=False):
     return df
 
 
+def build_df_byTrack(file):
+    """Reads fiji generated csv and groups by TRACK_ID"""
+    file = pathlib.Path(file)
+    
+    this_csv = pd.read_csv(str(file))
+    this_dict = dict()
+    for column in this_csv.columns:
+        this_dict[column] = []
+    for track in this_csv.groupby('TRACK_ID'):
+        this_dict['TRACK_ID'].append(track[0])
+        for column in track[1].columns:
+            if column=='TRACK_ID':
+                continue
+            this_dict[column].append(track[1][column].values)
+    return pd.DataFrame(this_dict)
+
+
 def extract_tracks(fp):
     """Extracts attributes of TrackStat.csv files produced by fiji and adds them to a DataFrame
     """
@@ -1068,9 +1085,16 @@ def extract_tracks(fp):
     # TODO: add link extraction and maybe some trajectory parser
     for file in fp.iterdir():
         if str(file).endswith('TrackStat.csv'):
+            spot_file = fp.joinpath(file.name.split('_')[0]+'_SpotStat.csv')
+            link_file = fp.joinpath(file.name.split('_')[0]+'_LinkStat.csv')
+            spot_df = build_df_byTrack(spot_file)
+            link_df = build_df_byTrack(link_file)
             this_csv = pd.read_csv(str(file))
+            this_csv['TRACK_ID'] = [int(this_track.split('_')[-1]) for this_track in this_csv['Label'].values]
             this_csv['cell'] = file.stem.split('_')[0]
             this_csv['file'] = str(file)
+            this_csv = this_csv.merge(spot_df, on='TRACK_ID')
+            this_csv = this_csv.merge(link_df, on='TRACK_ID')
             
             df = df.append(this_csv, ignore_index=True)
     
