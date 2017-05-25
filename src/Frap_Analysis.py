@@ -1058,6 +1058,9 @@ def fit_whole_frap_func(df, Plot=False):
     return df
 
 
+# Track functions
+
+
 def build_df_byTrack(file):
     """Reads fiji generated csv and groups by TRACK_ID"""
     file = pathlib.Path(file)
@@ -1075,6 +1078,31 @@ def build_df_byTrack(file):
     return pd.DataFrame(this_dict)
 
 
+def autocorrFFT(x):
+    """Calculates autocorrelation of vector x using FFT. See https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft"""
+    N=len(x)
+    F = np.fft.fft(x, n=2*N)  #2*N because of zero-padding
+    PSD = F * F.conjugate()
+    res = np.fft.ifft(PSD)
+    res= (res[:N]).real   #now we have the autocorrelation in convention B
+    n=N*np.ones(N)-np.arange(0,N) #divide res(m) by (N-m)
+    return res/n #this is the autocorrelation in convention A
+
+
+def msd_fft(r):
+    """Calculates MSD using FFT"""
+    N=len(r)
+    D=np.square(r).sum(axis=1) 
+    D=np.append(D,0) 
+    S2=sum([autocorrFFT(r[:, i]) for i in range(r.shape[1])])
+    Q=2*D.sum()
+    S1=np.zeros(N)
+    for m in range(N):
+        Q=Q-D[m-1]-D[N-m]
+        S1[m]=Q/(N-m)
+    return S1-2*S2
+
+
 def extract_tracks(fp):
     """Extracts attributes of TrackStat.csv files produced by fiji and adds them to a DataFrame
     """
@@ -1082,11 +1110,10 @@ def extract_tracks(fp):
     fp = pathlib.Path(fp)
     
     df = pd.DataFrame()
-    # TODO: add link extraction and maybe some trajectory parser
     for file in fp.iterdir():
         if str(file).endswith('TrackStat.csv'):
-            spot_file = fp.joinpath(file.name.split('_')[0]+'_SpotStat.csv')
-            link_file = fp.joinpath(file.name.split('_')[0]+'_LinkStat.csv')
+            spot_file = fp.joinpath('_'.join(file.name.split('_')[:-1])+'_SpotStat.csv')
+            link_file = fp.joinpath('_'.join(file.name.split('_')[:-1])+'_LinkStat.csv')
             spot_df = build_df_byTrack(spot_file)
             link_df = build_df_byTrack(link_file)
             this_csv = pd.read_csv(str(file))
@@ -1097,6 +1124,9 @@ def extract_tracks(fp):
             this_csv = this_csv.merge(link_df, on='TRACK_ID')
             
             df = df.append(this_csv, ignore_index=True)
+    
+    # Calculate msd of tracks
+    df['msd'] = list(map(lambda x,y: msd_fft(np.asarray([x, y]).T), df['POSITION_X'], df['POSITION_Y']))
     
     return df
 
