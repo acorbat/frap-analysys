@@ -1078,6 +1078,21 @@ def build_df_byTrack(file):
     return pd.DataFrame(this_dict)
 
 
+def msd_straight_forward(r):
+    """Calculates msd and its std"""
+    shifts = np.arange(len(r))
+    msds = np.zeros(shifts.size)
+    stds = np.zeros(shifts.size)
+
+    for i, shift in enumerate(shifts):
+        diffs = r[:-shift if shift else None] - r[shift:]
+        sqdist = np.square(diffs).sum(axis=1)
+        msds[i] = sqdist.mean()
+        stds[i] = sqdist.std()
+    
+    return msds, stds
+
+
 def autocorrFFT(x):
     """Calculates autocorrelation of vector x using FFT. See https://stackoverflow.com/questions/34222272/computing-mean-square-displacement-using-python-and-fft"""
     N=len(x)
@@ -1127,6 +1142,9 @@ def extract_tracks(fp):
     
     # Calculate msd of tracks
     df['msd'] = list(map(lambda x,y: msd_fft(np.asarray([x, y]).T), df['POSITION_X'], df['POSITION_Y']))
+    res = list(map(lambda x,y: msd_straight_forward(np.asarray([x, y]).T), df['POSITION_X'], df['POSITION_Y']))
+    res = np.asarray(res)
+    df['msd_str'], df['std'] = res[:,0], res[:,1]
     
     return df
 
