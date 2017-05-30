@@ -1846,3 +1846,45 @@ def make_pdf_track(file, df):
     plt.show()
     
     pp.close()
+
+
+def make_pdf_directed(file, df):
+    pp = PdfPages(file)
+    
+    for i in df.index:
+        t = df.POSITION_T[i][:-1]
+        v = df.VELOCITY[i]
+        med = np.nanmedian(v)
+        std = np.nanstd(v)
+        max_v = np.nanmax(v)
+        try:
+            
+            if max_v>0.2 and str([1, 1]).strip('[]') in str([1 if ((this_v>med+2*std) and (this_v>0.20)) else 0 for this_v in v]).strip('[]'):
+                plt.plot(t, v)
+                plt.plot(t, [med]*len(v), '--k')
+                plt.plot(t, [med+2*std]*len(v), '--r')
+                plt.xlabel('time (s)')
+                plt.ylabel('velocity ($\\mu$m/s)')
+                title = df.date[i] + ' ' + df.cell[i] + ' ' + df.exp[i]
+                plt.title(title)
+                pp.savefig()
+                plt.show()
+                
+                this_file = pathlib.Path(df.file[i])
+                this_imgfile = this_file.parent
+                this_imgfile = this_imgfile.joinpath('_'.join(this_file.name.split('_')[:-1])+'.oif')
+                meta = get_metadata(this_imgfile)
+                x_end = float(meta['Axis 0 Parameters Common']['EndPosition'])
+                y_end = float(meta['Axis 1 Parameters Common']['EndPosition'])
+                series = oif.imread(str(this_imgfile))[0]
+                
+                plt.imshow(series[0], extent=[0, x_end, y_end, 0])
+                plt.plot(df.POSITION_X[i], df.POSITION_Y[i])
+                plt.title(title)
+                pp.savefig()
+                plt.show()
+                
+        except:
+            continue
+        
+    pp.close()
