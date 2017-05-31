@@ -1846,7 +1846,21 @@ def make_pdf_track(file, df):
     plt.show()
     
     pp.close()
+    
 
+def is_dirmov(pos_x, pos_y):
+    pos = np.asarray([pos_x, pos_y]).T
+    vels = np.diff(pos, axis=0)
+    vels = vels[:,0] + 1j*vels[:,1]
+    dirs = np.angle(vels)
+    sim_dif = np.diff(dirs)
+    comparisons = abs(np.arctan2(np.sin(sim_dif), np.cos(sim_dif)))<10*np.pi/180
+    for i in range(len(comparisons)-1):
+        if comparisons[i] and comparisons[i+1]:
+            return True
+    return False
+
+# max_v>0.2 and str([1, 1]).strip('[]') in str([1 if ((this_v>med+2*std) and (this_v>0.20)) else 0 for this_v in v]).strip('[]')
 
 def make_pdf_directed(file, df):
     pp = PdfPages(file)
@@ -1859,7 +1873,7 @@ def make_pdf_directed(file, df):
         max_v = np.nanmax(v)
         try:
             
-            if max_v>0.2 and str([1, 1]).strip('[]') in str([1 if ((this_v>med+2*std) and (this_v>0.20)) else 0 for this_v in v]).strip('[]'):
+            if is_dirmov(df.POSITION_X[i], df.POSITION_Y[i]):
                 plt.plot(t, v)
                 plt.plot(t, [med]*len(v), '--k')
                 plt.plot(t, [med+2*std]*len(v), '--r')
