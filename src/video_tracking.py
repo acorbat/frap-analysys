@@ -74,7 +74,7 @@ for file in all_experiments:
     settings.detectorFactory = DogDetectorFactory()
     settings.detectorSettings = {
         DetectorKeys.KEY_DO_SUBPIXEL_LOCALIZATION : True,
-        DetectorKeys.KEY_RADIUS : 1.,
+        DetectorKeys.KEY_RADIUS : 0.5,
         DetectorKeys.KEY_TARGET_CHANNEL : 1,
         DetectorKeys.KEY_THRESHOLD : 25.,
         DetectorKeys.KEY_DO_MEDIAN_FILTERING : False,
@@ -109,8 +109,8 @@ for file in all_experiments:
     # Configure track filters - We want to get rid of the two immobile spots at 
     # the bottom right of the image. Track displacement must be above 10 pixels.
     
-    filter1 = FeatureFilter('TRACK_DURATION', 20, True)
-    settings.addTrackFilter(filter1)
+    #filter1 = FeatureFilter('TRACK_DURATION', 20, True)
+    #settings.addTrackFilter(filter1)
        
     print(str(settings))
           
