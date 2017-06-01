@@ -1849,6 +1849,7 @@ def make_pdf_track(file, df):
     
 
 def is_dirmov(pos_x, pos_y):
+    """Verifies if trajectory correspononds to a directed movement"""
     pos = np.asarray([pos_x, pos_y]).T
     vels = np.diff(pos, axis=0)
     vels = vels[:,0] + 1j*vels[:,1]
@@ -1863,6 +1864,8 @@ def is_dirmov(pos_x, pos_y):
 # max_v>0.2 and str([1, 1]).strip('[]') in str([1 if ((this_v>med+2*std) and (this_v>0.20)) else 0 for this_v in v]).strip('[]')
 
 def make_pdf_directed(file, df):
+    """Creates pdf from de df DataFrame with velocity vs time and trajectory
+    plotted over the first image if the directed trajectories fo granules"""
     pp = PdfPages(file)
     
     for i in df.index:
@@ -1901,4 +1904,29 @@ def make_pdf_directed(file, df):
         except:
             continue
         
+    pp.close()
+
+
+def make_pdf_all_tracks(file, df):
+    """Creates pdf of all trajectories of df DataFrame plotted over the first image of each series"""
+    pp = PdfPages(file)
+    
+    for group in df.groupby('file'):
+        group = group[1]
+        for i in group.index:
+            this_file = pathlib.Path(df.file[i])
+            this_imgfile = this_file.parent
+            this_imgfile = this_imgfile.joinpath('_'.join(this_file.name.split('_')[:-1])+'.oif')
+            meta = get_metadata(this_imgfile)
+            x_end = float(meta['Axis 0 Parameters Common']['EndPosition'])
+            y_end = float(meta['Axis 1 Parameters Common']['EndPosition'])
+            series = oif.imread(str(this_imgfile))[0]
+                    
+            plt.imshow(series[0], extent=[0, x_end, y_end, 0])
+            plt.plot(df.POSITION_X[i], df.POSITION_Y[i])
+        title = df.date[i] + ' ' + df.cell[i] + ' ' + df.exp[i]
+        plt.title(title)
+        pp.savefig()
+        plt.show()
+    
     pp.close()
