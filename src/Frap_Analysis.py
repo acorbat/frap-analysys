@@ -1913,18 +1913,19 @@ def make_pdf_all_tracks(file, df):
     
     for group in df.groupby('file'):
         group = group[1]
+        
+        this_file = pathlib.Path(group.file.values[0])
+        this_imgfile = this_file.parent
+        this_imgfile = this_imgfile.joinpath('_'.join(this_file.name.split('_')[:-1])+'.oif')
+        meta = get_metadata(this_imgfile)
+        x_end = float(meta['Axis 0 Parameters Common']['EndPosition'])
+        y_end = float(meta['Axis 1 Parameters Common']['EndPosition'])
+        series = oif.imread(str(this_imgfile))[0]
+                
+        plt.imshow(series[0], extent=[0, x_end, y_end, 0])
         for i in group.index:
-            this_file = pathlib.Path(df.file[i])
-            this_imgfile = this_file.parent
-            this_imgfile = this_imgfile.joinpath('_'.join(this_file.name.split('_')[:-1])+'.oif')
-            meta = get_metadata(this_imgfile)
-            x_end = float(meta['Axis 0 Parameters Common']['EndPosition'])
-            y_end = float(meta['Axis 1 Parameters Common']['EndPosition'])
-            series = oif.imread(str(this_imgfile))[0]
-                    
-            plt.imshow(series[0], extent=[0, x_end, y_end, 0])
-            plt.plot(df.POSITION_X[i], df.POSITION_Y[i])
-        title = df.date[i] + ' ' + df.cell[i] + ' ' + df.exp[i]
+            plt.plot(group.POSITION_X[i], group.POSITION_Y[i])
+        title = group.date[i] + ' ' + group.cell[i] + ' ' + group.exp[i]
         plt.title(title)
         pp.savefig()
         plt.show()
