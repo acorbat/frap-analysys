@@ -1861,11 +1861,17 @@ def is_dirmov(this_track):
     dirs = np.angle(vels)
     sim_dif = np.diff(dirs)
     comparisons = abs(np.arctan2(np.sin(sim_dif), np.cos(sim_dif)))<10*np.pi/180
+    for i in range(len(v)-1):
+        if v[i]>0.3 and v[i+1]>0.3:
+            if comparisons[i]:
+                return True
+    """
     for i in range(len(comparisons)-1):
         if comparisons[i] and comparisons[i+1]:
             this_inds = np.clip([i-2, i-1,i,i+1, i+2], 0, len(v))
             if np.nansum(v[this_inds]>0.3)>2:
                 return True
+    """
     return False
 
 # max_v>0.2 and str([1, 1]).strip('[]') in str([1 if ((this_v>med+2*std) and (this_v>0.20)) else 0 for this_v in v]).strip('[]')
