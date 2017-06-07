@@ -1069,8 +1069,10 @@ def build_df_byTrack(file):
     this_dict = dict()
     for column in this_csv.columns:
         this_dict[column] = []
+    t = 0
     for track in this_csv.groupby('TRACK_ID'):
-        this_dict['TRACK_ID'].append(track[0])
+        this_dict['TRACK_ID'].append(t)
+        t+=1
         for column in track[1].columns:
             if column=='TRACK_ID':
                 continue
@@ -1848,9 +1850,12 @@ def make_pdf_track(file, df):
     pp.close()
     
 
-def is_dirmov(pos_x, pos_y):
+def is_dirmov(this_track):
     """Verifies if trajectory correspononds to a directed movement"""
-    pos = np.asarray([pos_x, pos_y]).T
+    pos = np.asarray([this_track.POSITION_X, this_track.POSITION_Y]).T
+    v = this_track.VELOCITY
+    if np.nanmax(v)<0.3:
+        return False
     vels = np.diff(pos, axis=0)
     vels = vels[:,0] + 1j*vels[:,1]
     dirs = np.angle(vels)
@@ -1858,7 +1863,9 @@ def is_dirmov(pos_x, pos_y):
     comparisons = abs(np.arctan2(np.sin(sim_dif), np.cos(sim_dif)))<10*np.pi/180
     for i in range(len(comparisons)-1):
         if comparisons[i] and comparisons[i+1]:
-            return True
+            this_inds = np.clip([i-2, i-1,i,i+1, i+2], 0, len(v))
+            if np.nansum(v[this_inds]>0.3)>2:
+                return True
     return False
 
 # max_v>0.2 and str([1, 1]).strip('[]') in str([1 if ((this_v>med+2*std) and (this_v>0.20)) else 0 for this_v in v]).strip('[]')
@@ -1875,8 +1882,8 @@ def make_pdf_directed(file, df):
         std = np.nanstd(v)
         max_v = np.nanmax(v)
         try:
-            
-            if is_dirmov(df.POSITION_X[i], df.POSITION_Y[i]):
+            #if max_v>0.3 and str([1, 1]).strip('[]') in str([1 if ((this_v>med+2*std) and (this_v>0.30)) else 0 for this_v in v]).strip('[]'):
+            if is_dirmov(df.loc[i]):
                 plt.plot(t, v)
                 plt.plot(t, [med]*len(v), '--k')
                 plt.plot(t, [med+2*std]*len(v), '--r')
