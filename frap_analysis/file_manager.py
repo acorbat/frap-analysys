@@ -1,4 +1,4 @@
-mport pathlib
+import pathlib
 import os
 
 from frap_analysis import oiffile as oif
